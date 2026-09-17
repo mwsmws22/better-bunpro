@@ -1,4 +1,4 @@
-import { GM_xmlhttpRequest } from '$';
+import { GM, GM_xmlhttpRequest } from '$';
 
 /**
  * The only place the script talks to a host other than Bunpro. Every call goes
@@ -24,6 +24,18 @@ export function requestBlob(request: CrossOriginRequest): Promise<Blob> {
   return send(request, 'blob');
 }
 
+function gmXmlHttpRequest(): typeof GM_xmlhttpRequest {
+  if (typeof GM_xmlhttpRequest === 'function') {
+    return GM_xmlhttpRequest;
+  }
+  // Vite install / some managers expose only the GM.* form.
+  const fromGm = GM?.xmlHttpRequest as typeof GM_xmlhttpRequest | undefined;
+  if (typeof fromGm === 'function') {
+    return fromGm;
+  }
+  throw new Error('GM_xmlhttpRequest is not available');
+}
+
 function send(request: CrossOriginRequest, responseType: 'text'): Promise<string>;
 function send(request: CrossOriginRequest, responseType: 'blob'): Promise<Blob>;
 function send(
@@ -31,7 +43,7 @@ function send(
   responseType: 'text' | 'blob',
 ): Promise<string | Blob> {
   return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest<'text' | 'blob'>({
+    gmXmlHttpRequest()({
       url,
       method,
       headers,

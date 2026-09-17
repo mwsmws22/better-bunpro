@@ -97,11 +97,15 @@ describe('exampleOnScreenHasAudio', () => {
     expect(exampleOnScreenHasAudio()).toBe(false);
   });
 
-  it('is true when Bunpro prefetches example-sentence TTS even if the play control is hidden', () => {
+  it('is true when Bunpro prefetches sentence TTS and a study-question card is present (play may be hidden)', () => {
     document.body.innerHTML = `
       <div id="js-quiz">
         <article class="relative">
-          <section><p>図工の先生：「糊がしっかり乾いてからでないと」</p></section>
+          <section>
+            <aside id="study-question-99">
+              <p>図工の先生：「糊がしっかり乾いてからでないと」</p>
+            </aside>
+          </section>
           <footer>
             <div class="hidden">
               <button title="Play audio"></button>
@@ -113,6 +117,24 @@ describe('exampleOnScreenHasAudio', () => {
         href="https://cdn.example/audio/vocab/tts/図工の先生：「糊がしっかり乾いてからでないと」-male.mp3" />
     `;
     expect(exampleOnScreenHasAudio()).toBe(true);
+  });
+
+  it('ignores a leftover sentence-TTS prefetch on a term-only review', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section></section>
+          <footer>
+            <div class="hidden">
+              <button title="Play audio"></button>
+            </div>
+          </footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/previous-sentence-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(false);
   });
 
   it('is false when the example on screen has no speaker', () => {

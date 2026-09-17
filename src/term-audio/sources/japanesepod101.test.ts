@@ -10,8 +10,9 @@ describe('isSameWord', () => {
     expect(isSameWord({ term: '行く', reading: 'いく' }, 'ゆく')).toBe(false);
   });
 
-  it('keeps any reading when the word is its own reading, since there is then nothing to tell homographs apart by', () => {
-    expect(isSameWord({ term: 'たべる', reading: 'たべる' }, 'たべる')).toBe(true);
+  it('folds katakana to hiragana so グラグラ matches ぐらぐら, not くらくら', () => {
+    expect(isSameWord({ term: 'グラグラ', reading: 'グラグラ' }, 'ぐらぐら')).toBe(true);
+    expect(isSameWord({ term: 'グラグラ', reading: 'グラグラ' }, 'くらくら')).toBe(false);
   });
 
   it('drops a row with no reading at all', () => {

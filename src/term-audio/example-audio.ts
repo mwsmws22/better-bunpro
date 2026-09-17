@@ -1,4 +1,4 @@
-import { findNativeSentenceCard, findQuizArticle } from '../bunpro/quiz-dom';
+import { findClozeSentence, findNativeSentenceCard, findQuizArticle } from '../bunpro/quiz-dom';
 import type { StudyQuestion } from '../bunpro/api';
 import { shownSentence } from '../quiz-sentence/slot';
 import { bunproClipOrigin, type AudioOrigin } from './origin';
@@ -30,13 +30,16 @@ const SENTENCE_PLAY = 'button[title="Play audio"]';
  * - Do **not** treat every `button[title="Play audio"]` in the quiz as an
  *   example. Bunpro leaves **hidden** footer speakers on term-only cards; that
  *   false positive forced white Bunpro TTS when the answer bar should be JPod.
- * - Do **not** require the speaker to be visible either. After submit, the
- *   sentence can be on screen with Bunpro’s play control still `display`/size
- *   hidden, while `#prefetch-audio` already points at the sentence TTS file.
+ * - Do **not** trust `/audio/vocab/tts/` prefetch alone. Bunpro can leave the
+ *   *previous* review’s sentence TTS prefetch while the new card is term-only
+ *   (answer plays JPod, cue stayed white). Require a sentence surface too.
+ * - Do **not** require the speaker to be visible. After submit, the sentence can
+ *   be on screen with Bunpro’s play still size-hidden while prefetch already
+ *   points at the sentence TTS file.
  * - Reliable signals: our injected `shownSentence` audio URLs, a real
  *   `study-question-*` / `data-bb-study-question` card with a play button, a
- *   **visible** sentence play button, or prefetch under `/audio/vocab/tts/`
- *   (sentence) vs `/audio/vocab/pronunciation/` (term).
+ *   **visible** sentence play button, or sentence surface + prefetch under
+ *   `/audio/vocab/tts/` (sentence) vs `/audio/vocab/pronunciation/` (term).
  */
 export function exampleOnScreenHasAudio(): boolean {
   const shown = shownSentence();
@@ -53,7 +56,7 @@ export function exampleOnScreenHasAudio(): boolean {
 
   const article = findQuizArticle();
   if (!article) {
-    return prefetchIsExampleSentenceAudio();
+    return quizHasExampleSentenceSurface(null) && prefetchIsExampleSentenceAudio();
   }
   if (article.querySelector(`aside[data-bb-study-question] ${SENTENCE_PLAY}`)) {
     return true;
@@ -61,11 +64,28 @@ export function exampleOnScreenHasAudio(): boolean {
   if (quizHasVisibleSentencePlay(article)) {
     return true;
   }
-  return prefetchIsExampleSentenceAudio();
+  return quizHasExampleSentenceSurface(article) && prefetchIsExampleSentenceAudio();
 }
 
 function studyQuestionHasAudio(sentence: StudyQuestion): boolean {
   return sentence.male_audio_url !== null || sentence.female_audio_url !== null;
+}
+
+/** Sentence card / cloze / our injection — not the hidden footer leftovers. */
+function quizHasExampleSentenceSurface(article: HTMLElement | null): boolean {
+  if (shownSentence()) {
+    return true;
+  }
+  if (findNativeSentenceCard()) {
+    return true;
+  }
+  if (findClozeSentence()) {
+    return true;
+  }
+  if (article?.querySelector(`aside[data-bb-study-question], [id^="study-question-"]`)) {
+    return true;
+  }
+  return false;
 }
 
 /** Visible speakers only — ignores Bunpro’s hidden footer leftovers. */
@@ -81,6 +101,7 @@ function quizHasVisibleSentencePlay(article: HTMLElement): boolean {
 /**
  * Bunpro prefetches the clip the current UI will play. Example/sentence TTS
  * uses `/audio/vocab/tts/…`; term pronunciation uses `/audio/vocab/pronunciation/…`.
+ * Never trust this alone — see {@link exampleOnScreenHasAudio}.
  */
 function prefetchIsExampleSentenceAudio(): boolean {
   const href =

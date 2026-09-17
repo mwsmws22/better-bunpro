@@ -33,7 +33,8 @@ export interface TermAudioOrigins {
  *    Otherwise the answer bar is term audio → same lookup as Details (blue when
  *    real).
  * 3. Detection rules live in `example-audio.ts` — hidden footer Play buttons are
- *    not examples; sentence TTS prefetch `/audio/vocab/tts/` is.
+ *    not examples; sentence TTS prefetch alone is not enough (stale previous-card
+ *    `/tts/` left the answer bar white while JPod played).
  */
 export async function loadTermAudio(
   term: ReviewableRef,

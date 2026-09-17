@@ -9,7 +9,12 @@ import { toggleSettingsPanel } from './panel';
 const LAUNCHER_MARKER = 'data-bb-launcher';
 
 export function mountSettingsLaunchers(): void {
-  GM_registerMenuCommand('Settings', toggleSettingsPanel);
+  // Dev install / some managers omit this grant — never block the rest of the script.
+  try {
+    GM_registerMenuCommand('Settings', toggleSettingsPanel);
+  } catch {
+    // ignore
+  }
   keepLaunchersMounted();
 }
 

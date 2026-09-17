@@ -16,6 +16,12 @@ describe('jpod101Url', () => {
     );
   });
 
+  it('folds katakana readings to hiragana so グラグラ hits a real clip, not the placeholder', () => {
+    expect(jpod101Url({ term: 'グラグラ', reading: 'グラグラ' })).toBe(
+      `${ENDPOINT}?kana=${encodeURIComponent('ぐらぐら')}`,
+    );
+  });
+
   it('files 委ねる under kanji+kana the same way Yomitan does', () => {
     expect(jpod101Url({ term: '委ねる', reading: 'ゆだねる' })).toBe(
       `${ENDPOINT}?kanji=${encodeURIComponent('委ねる')}&kana=${encodeURIComponent('ゆだねる')}`,

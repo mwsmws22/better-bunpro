@@ -18,6 +18,8 @@ export const JAPANESE = `${KANJI}${HIRAGANA}${KATAKANA}`;
 
 const JAPANESE_CHARACTER = new RegExp(`^[${JAPANESE}]$`);
 const KANA_THROUGHOUT = new RegExp(`^[${HIRAGANA}${KATAKANA}]+$`);
+/** Katakana letters that have a hiragana counterpart (ァ–ヶ). */
+const KATAKANA_TO_HIRAGANA = /[\u30A1-\u30F6]/g;
 
 export function isJapanese(character: string): boolean {
   return JAPANESE_CHARACTER.test(character);
@@ -26,4 +28,11 @@ export function isJapanese(character: string): boolean {
 /** A word written without kanji, which dictionaries file under its spelling alone. */
 export function isEntirelyKana(text: string): boolean {
   return KANA_THROUGHOUT.test(text);
+}
+
+/** Fold katakana to hiragana so dictionary lookups match (グラグラ → ぐらぐら). */
+export function toHiragana(text: string): string {
+  return text.replace(KATAKANA_TO_HIRAGANA, (katakana) =>
+    String.fromCharCode(katakana.charCodeAt(0) - 0x60),
+  );
 }

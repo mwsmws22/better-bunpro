@@ -10,12 +10,25 @@ type Listener = (key: string) => void;
 const listeners = new Set<Listener>();
 
 export function readStored<T>(key: string, fallback: T): T {
-  const stored = GM_getValue<T | undefined>(key, undefined);
-  return stored === undefined ? fallback : stored;
+  try {
+    if (typeof GM_getValue !== 'function') {
+      return fallback;
+    }
+    const stored = GM_getValue<T | undefined>(key, undefined);
+    return stored === undefined ? fallback : stored;
+  } catch {
+    return fallback;
+  }
 }
 
 export function writeStored<T>(key: string, value: T): void {
-  GM_setValue(key, value);
+  try {
+    if (typeof GM_setValue === 'function') {
+      GM_setValue(key, value);
+    }
+  } catch {
+    // Dev / missing grant — keep in-memory listeners only.
+  }
   for (const listener of listeners) {
     listener(key);
   }

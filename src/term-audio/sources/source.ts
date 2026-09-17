@@ -5,6 +5,8 @@
  * https://github.com/yomidevs/yomitan/blob/master/ext/js/media/audio-downloader.js
  */
 
+import { toHiragana } from '../../japanese/characters';
+
 /** A word as a dictionary files it: how it is written, and how it is read. */
 export interface Word {
   term: string;
@@ -32,18 +34,19 @@ export function parsePage(html: string): Document {
 
 /**
  * An exact-match search still returns homographs, so a result only counts when
- * it is read the way we expect. A word that is its own reading matches anything,
- * since there is then nothing to tell its homographs apart by.
+ * it is read the way we expect. Katakana/hiragana are folded so グラグラ matches
+ * ぐらぐら (and not a different word that merely also has a reading).
  */
 export function isSameWord(
-  { term, reading }: Word,
+  { reading }: Word,
   entryReading: string | null | undefined,
 ): boolean {
-  const kana = entryReading?.trim() ?? '';
-  if (kana === '') {
+  const want = toHiragana(reading).trim();
+  const kana = toHiragana(entryReading?.trim() ?? '');
+  if (want === '' || kana === '') {
     return false;
   }
-  return reading === term || reading === kana;
+  return want === kana;
 }
 
 /** Jisho labels every clip with the spelling and reading it belongs to. */

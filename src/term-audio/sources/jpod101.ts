@@ -1,4 +1,4 @@
-import { isEntirelyKana } from '../../japanese/characters';
+import { isEntirelyKana, toHiragana } from '../../japanese/characters';
 import type { AudioSource, Word } from './source';
 
 const ENDPOINT = 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php';
@@ -27,14 +27,16 @@ export const jpod101: AudioSource = {
 /**
  * A word written in kana alone is filed under its reading, and asking for it as
  * a spelling finds nothing, so in that case only the reading is sent.
+ * Readings are sent as hiragana — katakana (グラグラ) only hits the placeholder.
  */
 export function jpod101Url({ term, reading }: Word): string {
   const query = new URLSearchParams();
-  if (term !== '' && !(term === reading && isEntirelyKana(term))) {
+  const readingHira = toHiragana(reading);
+  if (term !== '' && !(toHiragana(term) === readingHira && isEntirelyKana(term))) {
     query.set('kanji', term);
   }
-  if (reading !== '') {
-    query.set('kana', reading);
+  if (readingHira !== '') {
+    query.set('kana', readingHira);
   }
   return `${ENDPOINT}?${query}`;
 }
