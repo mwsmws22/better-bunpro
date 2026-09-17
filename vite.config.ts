@@ -14,7 +14,7 @@ export default defineConfig({
         author: 'mwsmws22',
         license: 'MIT',
         description:
-          'Features I wish Bunpro had. Show example sentences for A1+ vocab after a correct answer, cycle sentences with Tab, keep guessing after a wrong answer, add a missed translation as a synonym, edit a wrong answer with Left Arrow, play real speakers instead of synthesised term audio, and more.',
+          'Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.',
         // Bunpro routes client-side, so /reviews is often reached without a page
         // load. Every feature activates off the elements it needs being present.
         match: ['https://bunpro.jp/*'],
