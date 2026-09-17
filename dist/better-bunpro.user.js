@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.8.4
+// @version      0.8.5
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
 // @license      MIT
@@ -11,6 +11,7 @@
 // @connect      cdn.innovativelanguage.com
 // @connect      jisho.org
 // @connect      d1vjc5dkcd3yh2.cloudfront.net
+// @grant        GM.xmlHttpRequest
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
@@ -20,17 +21,25 @@
 
 (function() {
 	"use strict";
+	var _GM = (() => typeof GM != "undefined" ? GM : void 0)();
 	var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
 	var _GM_registerMenuCommand = (() => typeof GM_registerMenuCommand != "undefined" ? GM_registerMenuCommand : void 0)();
 	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
 	var _GM_xmlhttpRequest = (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
 	var listeners = new Set();
 	function readStored(key, fallback) {
-		const stored = _GM_getValue(key, void 0);
-		return stored === void 0 ? fallback : stored;
+		try {
+			if (typeof _GM_getValue !== "function") return fallback;
+			const stored = _GM_getValue(key, void 0);
+			return stored === void 0 ? fallback : stored;
+		} catch {
+			return fallback;
+		}
 	}
 	function writeStored(key, value) {
-		_GM_setValue(key, value);
+		try {
+			if (typeof _GM_setValue === "function") _GM_setValue(key, value);
+		} catch {}
 		for (const listener of listeners) listener(key);
 	}
 	var features = [];
@@ -347,11 +356,15 @@
 	var JAPANESE = `${KANJI}${HIRAGANA}${KATAKANA}`;
 	var JAPANESE_CHARACTER = new RegExp(`^[${JAPANESE}]$`);
 	var KANA_THROUGHOUT = new RegExp(`^[${HIRAGANA}${KATAKANA}]+$`);
+	var KATAKANA_TO_HIRAGANA = /[\u30A1-\u30F6]/g;
 	function isJapanese(character) {
 		return JAPANESE_CHARACTER.test(character);
 	}
 	function isEntirelyKana(text) {
 		return KANA_THROUGHOUT.test(text);
+	}
+	function toHiragana(text) {
+		return text.replace(KATAKANA_TO_HIRAGANA, (katakana) => String.fromCharCode(katakana.charCodeAt(0) - 96));
 	}
 	var LIGATURES = {
 		æ: "ae",
@@ -1503,13 +1516,20 @@ input.bb-correct-guess {
 		}
 		if (findNativeSentenceCard()?.querySelector(SENTENCE_PLAY)) return true;
 		const article = findQuizArticle();
-		if (!article) return prefetchIsExampleSentenceAudio();
+		if (!article) return quizHasExampleSentenceSurface(null) && prefetchIsExampleSentenceAudio();
 		if (article.querySelector(`aside[data-bb-study-question] ${SENTENCE_PLAY}`)) return true;
 		if (quizHasVisibleSentencePlay(article)) return true;
-		return prefetchIsExampleSentenceAudio();
+		return quizHasExampleSentenceSurface(article) && prefetchIsExampleSentenceAudio();
 	}
 	function studyQuestionHasAudio(sentence) {
 		return sentence.male_audio_url !== null || sentence.female_audio_url !== null;
+	}
+	function quizHasExampleSentenceSurface(article) {
+		if (shownSentence()) return true;
+		if (findNativeSentenceCard()) return true;
+		if (findClozeSentence()) return true;
+		if (article?.querySelector(`aside[data-bb-study-question], [id^="study-question-"]`)) return true;
+		return false;
 	}
 	function quizHasVisibleSentencePlay(article) {
 		for (const node of article.querySelectorAll(SENTENCE_PLAY)) if (node instanceof HTMLElement && isVisiblyDisplayed(node)) return true;
@@ -1618,9 +1638,15 @@ input.bb-correct-guess {
 	function requestBlob(request) {
 		return send(request, "blob");
 	}
+	function gmXmlHttpRequest() {
+		if (typeof _GM_xmlhttpRequest === "function") return _GM_xmlhttpRequest;
+		const fromGm = _GM?.xmlHttpRequest;
+		if (typeof fromGm === "function") return fromGm;
+		throw new Error("GM_xmlhttpRequest is not available");
+	}
 	function send({ url, method = "GET", headers, body }, responseType) {
 		return new Promise((resolve, reject) => {
-			_GM_xmlhttpRequest({
+			gmXmlHttpRequest()({
 				url,
 				method,
 				headers,
@@ -1643,10 +1669,11 @@ input.bb-correct-guess {
 	function parsePage(html) {
 		return new DOMParser().parseFromString(html, "text/html");
 	}
-	function isSameWord({ term, reading }, entryReading) {
-		const kana = entryReading?.trim() ?? "";
-		if (kana === "") return false;
-		return reading === term || reading === kana;
+	function isSameWord({ reading }, entryReading) {
+		const want = toHiragana(reading).trim();
+		const kana = toHiragana(entryReading?.trim() ?? "");
+		if (want === "" || kana === "") return false;
+		return want === kana;
 	}
 	function clipId({ term, reading }) {
 		return `audio_${term}:${reading}`;
@@ -1701,8 +1728,9 @@ input.bb-correct-guess {
 	};
 	function jpod101Url({ term, reading }) {
 		const query = new URLSearchParams();
-		if (term !== "" && !(term === reading && isEntirelyKana(term))) query.set("kanji", term);
-		if (reading !== "") query.set("kana", reading);
+		const readingHira = toHiragana(reading);
+		if (term !== "" && !(toHiragana(term) === readingHira && isEntirelyKana(term))) query.set("kanji", term);
+		if (readingHira !== "") query.set("kana", readingHira);
 		return `${ENDPOINT}?${query}`;
 	}
 	function kanjiWordMissingReading({ term, reading }) {
@@ -2231,7 +2259,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.8.4";
+	var version = "0.8.5";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -2339,7 +2367,9 @@ input.bb-correct-guess {
 	}
 	var LAUNCHER_MARKER = "data-bb-launcher";
 	function mountSettingsLaunchers() {
-		_GM_registerMenuCommand("Settings", toggleSettingsPanel);
+		try {
+			_GM_registerMenuCommand("Settings", toggleSettingsPanel);
+		} catch {}
 		keepLaunchersMounted();
 	}
 	function keepLaunchersMounted() {
