@@ -41,3 +41,26 @@ Greasy Fork only picks up a new release when **`package.json` `version` changes*
 Sync URL for Greasy Fork (webhook):
 
 `https://raw.githubusercontent.com/mwsmws22/better-bunpro/main/dist/better-bunpro.user.js`
+
+## Greasy Fork webhook setup
+
+1. **Script sync URL** (Greasy Fork → Better Bunpro → Update / Admin → sync from URL):
+
+   `https://raw.githubusercontent.com/mwsmws22/better-bunpro/main/dist/better-bunpro.user.js`
+
+2. **Your webhook payload URL + secret** (must be logged in):
+
+   https://greasyfork.org/en/users/webhook-info  
+   Click **Generate** if you do not have a secret yet. Copy the **Payload URL** and **Secret**.
+
+3. **GitHub webhook** on this repo → Settings → Webhooks → Add webhook:
+
+   | Field | Value |
+   |---|---|
+   | Payload URL | from Greasy Fork webhook-info (usually `https://api.greasyfork.org/users/1519982/webhook`) |
+   | Content type | `application/json` |
+   | Secret | from Greasy Fork webhook-info |
+   | Events | Just the **push** event |
+   | Active | checked |
+
+After that, each push to `main` that **modifies** `dist/better-bunpro.user.js` (and bumps `@version`) updates Greasy Fork automatically.
