@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.8.5
+// @version      0.9.0
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
 // @license      MIT
@@ -623,6 +623,13 @@ html.bb-skipping-undo-modal #tooltip-portal,
 html.bb-skipping-undo-modal .Toast {
   visibility: hidden !important;
   opacity: 0 !important;
+}
+/**
+ * Bunpro’s Review SRS → Hide still shows this chip after submit. Force it off
+ * for the whole review when Fully hide review SRS is enabled.
+ */
+html.bb-hide-srs li[title="Your SRS progress"] {
+  display: none !important;
 }
 .bb-popover {
   width: max-content;
@@ -1484,6 +1491,20 @@ input.bb-correct-guess {
 			index: pickSentenceIndex(termKey(term), sessionId, sentences.length)
 		});
 	}
+	var HIDE_SRS_CLASS = "bb-hide-srs";
+	var hideSrsFeature = {
+		id: "hide-srs",
+		title: "Fully hide review SRS",
+		description: "Keeps Bunpro’s SRS level chip (Beginner / Seasoned / …) hidden for the whole review — including after a wrong answer, give-up, or correct. Pair with Bunpro’s Review SRS → Hide in review settings; that setting alone still reveals the level once you submit.",
+		enabledByDefault: true,
+		start() {
+			injectStyles();
+			document.documentElement.classList.add(HIDE_SRS_CLASS);
+		},
+		stop() {
+			document.documentElement.classList.remove(HIDE_SRS_CLASS);
+		}
+	};
 	function labelForOrigin(origin) {
 		switch (origin) {
 			case "jpod101": return "JPod101 Recording";
@@ -2259,7 +2280,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.8.5";
+	var version = "0.9.0";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -2451,6 +2472,7 @@ input.bb-correct-guess {
 	registerFeature(humanTermAudioFeature);
 	registerFeature(addSynonymFeature);
 	registerFeature(editOnLeftFeature);
+	registerFeature(hideSrsFeature);
 	mountSettingsLaunchers();
 	mountHotkeyGuide();
 	startEnabledFeatures();
