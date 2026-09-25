@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.0
+// @version      0.9.1
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
 // @license      MIT
@@ -219,11 +219,7 @@
 	function findAnswerBarAudioControl() {
 		const answerConsole = findAnswerConsole();
 		if (!answerConsole) return null;
-		for (const name of [
-			"PLAY_CIRCLE_FILLED",
-			"PAUSE",
-			"CANCEL"
-		]) {
+		for (const name of ["PLAY_CIRCLE_FILLED", "PAUSE"]) {
 			const button = answerConsole.querySelector(`button:has(svg[data-name="${name}"])`);
 			if (button instanceof HTMLElement) return button;
 		}
@@ -605,18 +601,41 @@
   padding: 0 0.375rem 0.5rem;
 }
 /**
- * Outweigh Bunpro's \`text-primary-fg\` on the answer-bar play control when a
- * real recording (not TTS) will play after the answer is in.
+ * Outweigh Bunpro's \`text-primary-fg\` / \`text-primary-accent\` on the answer-bar
+ * play and pause controls when a real recording (not TTS) will play after the
+ * answer is in. Pause keeps Bunpro’s accent class while open — \`!important\`
+ * beats it for white TTS and blue real-recording cues. Do not style CANCEL;
+ * that close control stays Bunpro’s accent.
  */
 button.bb-audio-real {
-  color: rgb(var(--c-primary-accent) / 1);
+  color: rgb(var(--c-primary-accent) / 1) !important;
 }
 /**
  * Details pitch-accent play is Bunpro-accent by default — force primary fg when
  * only synthesised audio will play, so the tint means a real recording.
  */
 button.bb-audio-tts {
-  color: rgb(var(--c-primary-fg) / 1);
+  color: rgb(var(--c-primary-fg) / 1) !important;
+}
+/** Injected answer-bar toggle: swap play↔pause without remounting. */
+#bb-answer-bar-replay .bb-replay-pause {
+  display: none;
+}
+#bb-answer-bar-replay.bb-replay-playing .bb-replay-play {
+  display: none;
+}
+#bb-answer-bar-replay.bb-replay-playing .bb-replay-pause {
+  display: block;
+}
+/** Hide Bunpro’s answer-console audio chrome only while our toggle is mounted. */
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="PLAY_CIRCLE_FILLED"]) {
+  display: none !important;
+}
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="PAUSE"]) {
+  display: none !important;
+}
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="CANCEL"]) {
+  display: none !important;
 }
 html.bb-skipping-undo-modal .Modal,
 html.bb-skipping-undo-modal #tooltip-portal,
@@ -665,11 +684,13 @@ input.bb-correct-guess {
 }
 `;
 	function injectStyles() {
-		if (document.getElementById(STYLE_ID)) return;
-		const style = document.createElement("style");
-		style.id = STYLE_ID;
+		let style = document.getElementById(STYLE_ID);
+		if (!style) {
+			style = document.createElement("style");
+			style.id = STYLE_ID;
+			document.head.append(style);
+		}
 		style.textContent = CSS;
-		document.head.append(style);
 	}
 	var BASE_CLASS = "flex w-full items-center justify-center gap-4 rounded-normal border px-12 py-6 text-extra-small md:text-body font-normal transition-colors";
 	var STATE_CLASS = {
@@ -1084,7 +1105,7 @@ input.bb-correct-guess {
 	}
 	var EDIT_KEY = "ArrowLeft";
 	var stopWatchingQuiz$3 = null;
-	var pending = null;
+	var pending$1 = null;
 	var restoreTimer = null;
 	var editOnLeftFeature = {
 		id: "edit-on-left",
@@ -1105,10 +1126,10 @@ input.bb-correct-guess {
 	};
 	function onKeyDown$1(event) {
 		if (event.key !== EDIT_KEY || hasModifier(event)) return;
-		if (pending) {
+		if (pending$1) {
 			event.preventDefault();
 			event.stopPropagation();
-			pending.lefts += 1;
+			pending$1.lefts += 1;
 			return;
 		}
 		if (event.repeat || areKeystrokesClaimed() || !findUndoButton()) return;
@@ -1116,7 +1137,7 @@ input.bb-correct-guess {
 		if (!shouldEnterEditOnLeft(state)) return;
 		event.preventDefault();
 		event.stopPropagation();
-		pending = {
+		pending$1 = {
 			review: reviewKey(state),
 			text: state.submittedAnswer ?? findAnswerInput()?.value ?? "",
 			lefts: 1
@@ -1124,32 +1145,32 @@ input.bb-correct-guess {
 		undoGradedAnswer("visible");
 	}
 	function onQuizStateChange$3(state) {
-		if (!pending) return;
-		const action = pendingRestoreAction(pending.review, reviewKey(state), state.isPostAttempt);
+		if (!pending$1) return;
+		const action = pendingRestoreAction(pending$1.review, reviewKey(state), state.isPostAttempt);
 		if (action === "wait") return;
 		if (action === "forget") {
 			forgetPending();
 			return;
 		}
 		applyPendingRestore();
-		replayRestoreAfterReact(pending);
+		replayRestoreAfterReact(pending$1);
 	}
 	function applyPendingRestore() {
-		if (!pending) return;
-		restoreWrongAnswer(pending.text, pending.lefts);
+		if (!pending$1) return;
+		restoreWrongAnswer(pending$1.text, pending$1.lefts);
 	}
 	function replayRestoreAfterReact(session) {
 		if (restoreTimer !== null) window.clearTimeout(restoreTimer);
 		restoreTimer = window.setTimeout(() => {
 			restoreTimer = null;
-			if (pending === session) {
+			if (pending$1 === session) {
 				applyPendingRestore();
-				pending = null;
+				pending$1 = null;
 			}
 		}, 0);
 	}
 	function forgetPending() {
-		pending = null;
+		pending$1 = null;
 		if (restoreTimer !== null) {
 			window.clearTimeout(restoreTimer);
 			restoreTimer = null;
@@ -1267,7 +1288,7 @@ input.bb-correct-guess {
 		audioFontSize: "1.625rem"
 	};
 	var TEXT_COLUMN_CLASS = "relative z-1 flex grow flex-col items-center justify-center gap-4 text-center";
-	var PLAY_CIRCLE_PATH = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m-2 13.5v-7a.5.5 0 0 1 .8-.4l4.67 3.5c.27.2.27.6 0 .8l-4.67 3.5a.5.5 0 0 1-.8-.4";
+	var PLAY_CIRCLE_PATH$1 = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m-2 13.5v-7a.5.5 0 0 1 .8-.4l4.67 3.5c.27.2.27.6 0 .8l-4.67 3.5a.5.5 0 0 1-.8-.4";
 	function buildSentenceCard(sentence, preset) {
 		const japanese = element("p", {
 			class: preset.japaneseClass,
@@ -1285,7 +1306,7 @@ input.bb-correct-guess {
 		}, children);
 	}
 	function buildAudioButton(audioUrl, fontSize) {
-		const icon = svgIcon("h-24 w-24", `<path d="${PLAY_CIRCLE_PATH}" fill="currentColor"/>`);
+		const icon = svgIcon("h-24 w-24", `<path d="${PLAY_CIRCLE_PATH$1}" fill="currentColor"/>`);
 		const button = element("button", {
 			class: "block transition-opacity text-primary-accent",
 			title: "Play audio"
@@ -1505,6 +1526,335 @@ input.bb-correct-guess {
 			document.documentElement.classList.remove(HIDE_SRS_CLASS);
 		}
 	};
+	var AUTOPLAY_WAIT_MS = 400;
+	var activeReviewKey = null;
+	var pending = null;
+	var playedForReview = null;
+	var bunproPlayedForReview = null;
+	function setActiveTermAutoplayReview(reviewKey) {
+		if (activeReviewKey === reviewKey) return;
+		resetTermAutoplayState();
+		activeReviewKey = reviewKey;
+	}
+	function scheduleTermRecordingAutoplay(reviewKey, url) {
+		if (!url || playedForReview === reviewKey) return;
+		if (bunproPlayedForReview === reviewKey) return;
+		if (pending?.reviewKey === reviewKey && pending.url === url) return;
+		cancelScheduledTermAutoplay();
+		activeReviewKey = reviewKey;
+		pending = {
+			reviewKey,
+			url,
+			timer: setTimeout(() => {
+				pending = null;
+				if (playedForReview === reviewKey || bunproPlayedForReview === reviewKey) return;
+				if (shouldSkipTermAutoplay?.()) {
+					bunproPlayedForReview = reviewKey;
+					return;
+				}
+				playedForReview = reviewKey;
+				startFallbackPlayback(url);
+			}, AUTOPLAY_WAIT_MS)
+		};
+	}
+	var shouldSkipTermAutoplay = null;
+	function setTermAutoplaySkipWhen(shouldSkip) {
+		shouldSkipTermAutoplay = shouldSkip;
+	}
+	var playTermRecording = null;
+	function setTermAutoplayPlayer(play) {
+		playTermRecording = play;
+	}
+	function startFallbackPlayback(url) {
+		if (playTermRecording) {
+			playTermRecording(url);
+			return;
+		}
+		new Audio(url).play().catch(() => {});
+	}
+	function markTermAudioPlayedViaBunpro() {
+		if (activeReviewKey) bunproPlayedForReview = activeReviewKey;
+		cancelScheduledTermAutoplay();
+	}
+	function cancelScheduledTermAutoplay() {
+		if (pending) {
+			clearTimeout(pending.timer);
+			pending = null;
+		}
+	}
+	function resetTermAutoplayState() {
+		cancelScheduledTermAutoplay();
+		playedForReview = null;
+		bunproPlayedForReview = null;
+	}
+	function prefetchAudioHref() {
+		return document.querySelector("link#prefetch-audio")?.href ?? document.querySelector("link[rel=\"prefetch\"][as=\"audio\"]")?.href ?? null;
+	}
+	var recordings = new Map();
+	function remember(ttsUrls, recording, origin) {
+		for (const url of ttsUrls) recordings.set(canonicalAudioUrl(url), {
+			recording,
+			origin
+		});
+	}
+	function replacementFor(ttsUrl) {
+		return recordings.get(canonicalAudioUrl(ttsUrl))?.recording ?? null;
+	}
+	function urlToPlay(requested) {
+		return replacementFor(requested) ?? requested;
+	}
+	function forget(ttsUrls) {
+		for (const url of ttsUrls) recordings.delete(canonicalAudioUrl(url));
+	}
+	function forgetAll() {
+		recordings.clear();
+	}
+	function canonicalAudioUrl(url) {
+		try {
+			return decodeURI(url);
+		} catch {
+			return url;
+		}
+	}
+	var ANSWER_BAR_REPLAY_ID = "bb-answer-bar-replay";
+	var PLAYING_CLASS = "bb-replay-playing";
+	var PLAY_CIRCLE_PATH = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m-2 13.5v-7a.5.5 0 0 1 .8-.4l4.67 3.5c.27.2.27.6 0 .8l-4.67 3.5a.5.5 0 0 1-.8-.4";
+	var PAUSE_PATH = "M6 19h4V5H6zm8-14v14h4V5z";
+	var playUrl = null;
+	var listeningForP = false;
+	var interceptingClicks = false;
+	var currentAudio = null;
+	var currentAudioDetached = false;
+	var mediaListeners = null;
+	function syncAnswerBarReplay(options) {
+		if (!options.enabled) {
+			clearAnswerBarReplay();
+			return;
+		}
+		if (!options.playUrl) return;
+		injectStyles();
+		playUrl = options.playUrl;
+		ensureReplayButton(options.playUrl);
+		ensurePHotkey();
+		ensureBunproClickIntercept();
+	}
+	function playAnswerBarRecording(url) {
+		playUrl = url;
+		injectStyles();
+		ensureReplayButton(url);
+		ensurePHotkey();
+		ensureBunproClickIntercept();
+		startPlayback(url);
+	}
+	function takeOverBunproAnswerPlay(media, src, replacement) {
+		const owned = ownedAnswerBarUrl(src, replacement);
+		if (!owned) return false;
+		playUrl = owned;
+		injectStyles();
+		ensureReplayButton(owned);
+		ensurePHotkey();
+		ensureBunproClickIntercept();
+		if (canonicalAudioUrl(media.src || src) !== canonicalAudioUrl(owned)) media.src = owned;
+		adoptMediaElement(media);
+		setPlaying(true);
+		return true;
+	}
+	function ownedAnswerBarUrl(src, replacement) {
+		if (playUrl && urlMatchesOwned(src, replacement, playUrl)) return playUrl;
+		const prefetch = prefetchAudioHref();
+		const recording = prefetch ? replacementFor(prefetch) : null;
+		if (recording && urlMatchesOwned(src, replacement, recording)) return playUrl ?? recording;
+		if (prefetch && urlMatchesOwned(src, replacement, prefetch)) return playUrl ?? recording ?? prefetch;
+		return null;
+	}
+	function urlMatchesOwned(src, replacement, owned) {
+		const want = canonicalAudioUrl(owned);
+		return canonicalAudioUrl(src) === want || replacement !== null && canonicalAudioUrl(replacement) === want || canonicalAudioUrl(replacement ?? src) === want;
+	}
+	function clearAnswerBarReplay() {
+		stopPlayback();
+		playUrl = null;
+		document.getElementById(ANSWER_BAR_REPLAY_ID)?.remove();
+		stopPHotkey();
+		stopBunproClickIntercept();
+	}
+	function findAnswerBarReplayControl() {
+		const button = document.getElementById(ANSWER_BAR_REPLAY_ID);
+		return button instanceof HTMLElement ? button : null;
+	}
+	function isAnswerBarReplayAudio(media) {
+		return currentAudio !== null && media === currentAudio;
+	}
+	function ensureReplayButton(url) {
+		const existing = findAnswerBarReplayControl();
+		if (existing instanceof HTMLButtonElement) {
+			existing.dataset.bbPlayUrl = url;
+			if (currentAudio && !currentAudio.paused) existing.classList.add(PLAYING_CLASS);
+			return;
+		}
+		const answerConsole = findAnswerConsole();
+		if (!answerConsole) return;
+		answerConsole.querySelector(`#${ANSWER_BAR_REPLAY_ID}`)?.remove();
+		for (const spacer of answerConsole.querySelectorAll(":scope > div.p-6")) spacer.replaceChildren();
+		const button = buildReplayButton(url);
+		if (currentAudio && !currentAudio.paused) button.classList.add(PLAYING_CLASS);
+		const form = answerConsole.querySelector(":scope > form, :scope > .InputManual__form");
+		const spacer = answerConsole.querySelector(":scope > div.p-6");
+		if (spacer) answerConsole.insertBefore(button, spacer);
+		else if (form) answerConsole.insertBefore(button, form);
+		else answerConsole.prepend(button);
+	}
+	function buildReplayButton(url) {
+		const sizing = element("div", {
+			class: "bp-hover-bg__child rounded-normal",
+			style: "font-size: 2.25rem;"
+		}, [element("div", {
+			class: "relative flex items-center justify-center",
+			style: "width: 1em; height: 1em;"
+		}, [sizedPlaySvg("bb-replay-play", PLAY_CIRCLE_PATH), sizedPlaySvg("bb-replay-pause", PAUSE_PATH)])]);
+		const button = element("button", {
+			id: ANSWER_BAR_REPLAY_ID,
+			type: "button",
+			class: "transition-opacity",
+			"data-bb-play-url": url
+		}, [sizing]);
+		button.addEventListener("click", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			togglePlayback();
+		});
+		return button;
+	}
+	function sizedPlaySvg(className, path) {
+		const icon = svgIcon(`h-24 w-24 ${className}`, `<path d="${path}" fill="currentColor"/>`);
+		icon.setAttribute("style", "width: 0.666667em; height: 0.666667em;");
+		return icon;
+	}
+	function togglePlayback() {
+		if (!playUrl) return;
+		if (currentAudio && !currentAudio.paused) {
+			currentAudio.pause();
+			setPlaying(false);
+			return;
+		}
+		startPlayback(playUrl);
+	}
+	function adoptMediaElement(media) {
+		detachCurrentMedia({
+			pause: false,
+			clearSrc: false
+		});
+		currentAudio = media;
+		currentAudioDetached = false;
+		listenToMedia(media);
+	}
+	function startPlayback(url) {
+		stopPlayback();
+		const audio = new Audio(url);
+		currentAudio = audio;
+		currentAudioDetached = true;
+		listenToMedia(audio);
+		setPlaying(true);
+		audio.play().catch(() => {
+			if (currentAudio === audio) {
+				setPlaying(false);
+				currentAudio = null;
+				currentAudioDetached = false;
+			}
+		});
+	}
+	function listenToMedia(media) {
+		mediaListeners?.stop();
+		const onEnded = () => {
+			if (currentAudio === media) {
+				currentAudio = null;
+				currentAudioDetached = false;
+				setPlaying(false);
+			}
+		};
+		const onPause = () => {
+			if (currentAudio === media && media.paused) setPlaying(false);
+		};
+		const onPlay = () => {
+			if (currentAudio === media) setPlaying(true);
+		};
+		media.addEventListener("ended", onEnded);
+		media.addEventListener("pause", onPause);
+		media.addEventListener("play", onPlay);
+		mediaListeners = {
+			media,
+			stop: () => {
+				media.removeEventListener("ended", onEnded);
+				media.removeEventListener("pause", onPause);
+				media.removeEventListener("play", onPlay);
+			}
+		};
+	}
+	function stopPlayback() {
+		detachCurrentMedia({
+			pause: true,
+			clearSrc: true
+		});
+		setPlaying(false);
+	}
+	function detachCurrentMedia(options) {
+		mediaListeners?.stop();
+		mediaListeners = null;
+		const audio = currentAudio;
+		currentAudio = null;
+		const detached = currentAudioDetached;
+		currentAudioDetached = false;
+		if (!audio) return;
+		if (options.pause) audio.pause();
+		if (options.clearSrc && detached) audio.src = "";
+	}
+	function setPlaying(playing) {
+		findAnswerBarReplayControl()?.classList.toggle(PLAYING_CLASS, playing);
+	}
+	function ensurePHotkey() {
+		if (listeningForP) return;
+		window.addEventListener("keydown", onReplayKeyDown, true);
+		listeningForP = true;
+	}
+	function stopPHotkey() {
+		if (!listeningForP) return;
+		window.removeEventListener("keydown", onReplayKeyDown, true);
+		listeningForP = false;
+	}
+	function onReplayKeyDown(event) {
+		if (areKeystrokesClaimed() || hasModifier(event)) return;
+		if (event.key !== "p" && event.key !== "P") return;
+		if (!playUrl || !findAnswerBarReplayControl()) return;
+		event.preventDefault();
+		event.stopPropagation();
+		togglePlayback();
+	}
+	function ensureBunproClickIntercept() {
+		if (interceptingClicks) return;
+		document.addEventListener("click", onBunproAudioClick, true);
+		interceptingClicks = true;
+	}
+	function stopBunproClickIntercept() {
+		if (!interceptingClicks) return;
+		document.removeEventListener("click", onBunproAudioClick, true);
+		interceptingClicks = false;
+	}
+	function onBunproAudioClick(event) {
+		if (!playUrl || !findAnswerBarReplayControl()) return;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		const button = target.closest(".InputManual > button");
+		if (!(button instanceof HTMLElement) || button.id === "bb-answer-bar-replay") return;
+		const icon = button.querySelector("svg")?.getAttribute("data-name");
+		if (icon !== "PLAY_CIRCLE_FILLED" && icon !== "PAUSE" && icon !== "CANCEL") return;
+		event.preventDefault();
+		event.stopPropagation();
+		if (icon === "CANCEL") {
+			stopPlayback();
+			return;
+		}
+		togglePlayback();
+	}
 	function labelForOrigin(origin) {
 		switch (origin) {
 			case "jpod101": return "JPod101 Recording";
@@ -1537,20 +1887,60 @@ input.bb-correct-guess {
 		}
 		if (findNativeSentenceCard()?.querySelector(SENTENCE_PLAY)) return true;
 		const article = findQuizArticle();
-		if (!article) return quizHasExampleSentenceSurface(null) && prefetchIsExampleSentenceAudio();
+		if (!article) return prefetchBackedSentenceAudio(null);
 		if (article.querySelector(`aside[data-bb-study-question] ${SENTENCE_PLAY}`)) return true;
 		if (quizHasVisibleSentencePlay(article)) return true;
-		return quizHasExampleSentenceSurface(article) && prefetchIsExampleSentenceAudio();
+		return prefetchBackedSentenceAudio(article);
 	}
 	function studyQuestionHasAudio(sentence) {
 		return sentence.male_audio_url !== null || sentence.female_audio_url !== null;
 	}
-	function quizHasExampleSentenceSurface(article) {
-		if (shownSentence()) return true;
+	function prefetchBackedSentenceAudio(article) {
+		if (!prefetchIsExampleSentenceAudio()) return false;
 		if (findNativeSentenceCard()) return true;
-		if (findClozeSentence()) return true;
 		if (article?.querySelector(`aside[data-bb-study-question], [id^="study-question-"]`)) return true;
-		return false;
+		if (shownSentence()) return true;
+		if (article && clozeHasPrefetchedSentenceAudio(article)) return true;
+		return prefetchMatchesOnScreenSentence(article);
+	}
+	function clozeHasPrefetchedSentenceAudio(article) {
+		if (!article.querySelector(".bp-quiz-question")) return false;
+		if (article.querySelector(SENTENCE_PLAY)) return true;
+		if (article.querySelector("button[title=\"Audio not available for this item yet\"]")) return false;
+		return true;
+	}
+	function prefetchMatchesOnScreenSentence(article) {
+		const stem = prefetchSentenceStem();
+		if (!stem) return false;
+		const onScreen = onScreenSentenceText(article);
+		if (!onScreen) return false;
+		return isCharacterSubsequence(stem, onScreen);
+	}
+	function prefetchSentenceStem() {
+		const href = document.querySelector("link#prefetch-audio")?.href ?? document.querySelector("link[rel=\"prefetch\"][as=\"audio\"]")?.href ?? null;
+		if (!href || !href.includes("/audio/vocab/tts/")) return null;
+		let file;
+		try {
+			file = decodeURIComponent(href.slice(href.lastIndexOf("/") + 1));
+		} catch {
+			return null;
+		}
+		const stem = file.replace(/-(male|female)\.mp3$/i, "");
+		return stem.length > 0 ? stem : null;
+	}
+	function onScreenSentenceText(article) {
+		const cloze = article?.querySelector(".bp-quiz-question")?.textContent?.trim();
+		if (cloze) return cloze;
+		return findClozeSentence()?.textContent?.trim() ?? "";
+	}
+	function isCharacterSubsequence(needle, haystack) {
+		let from = 0;
+		for (const ch of needle) {
+			const at = haystack.indexOf(ch, from);
+			if (at === -1) return false;
+			from = at + 1;
+		}
+		return true;
 	}
 	function quizHasVisibleSentencePlay(article) {
 		for (const node of article.querySelectorAll(SENTENCE_PLAY)) if (node instanceof HTMLElement && isVisiblyDisplayed(node)) return true;
@@ -1599,7 +1989,7 @@ input.bb-correct-guess {
 	var LEGACY_CHIP_ID = "bb-audio-source";
 	function syncAudioSourceIndicator(cue) {
 		removeLegacyChip();
-		const answer = findAnswerBarAudioControl();
+		const answer = findAnswerBarReplayControl() ?? findAnswerBarAudioControl();
 		if (answer && cue.answerOrigin) paintControl(answer, cue.answerOrigin, cue.afterSubmit);
 		const details = findDetailsPitchPlay();
 		if (details && cue.detailsOrigin) paintControl(details, cue.detailsOrigin, cue.afterSubmit);
@@ -1633,7 +2023,7 @@ input.bb-correct-guess {
 		if (control.dataset[PLAY_TITLE_BACKUP] === void 0) control.dataset[PLAY_TITLE_BACKUP] = control.title || DEFAULT_PLAY_TITLE;
 	}
 	function paintedControls() {
-		const controls = [findAnswerBarAudioControl(), findDetailsPitchPlay()].filter((el) => el !== null);
+		const controls = [findAnswerBarReplayControl() ?? findAnswerBarAudioControl(), findDetailsPitchPlay()].filter((el) => el !== null);
 		controls.push(...findExamplesListPlayControls());
 		return controls;
 	}
@@ -1790,32 +2180,6 @@ input.bb-correct-guess {
 		const digest = await crypto.subtle.digest("SHA-256", await clip.arrayBuffer());
 		return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 	}
-	var recordings = new Map();
-	function remember(ttsUrls, recording, origin) {
-		for (const url of ttsUrls) recordings.set(canonicalAudioUrl(url), {
-			recording,
-			origin
-		});
-	}
-	function replacementFor(ttsUrl) {
-		return recordings.get(canonicalAudioUrl(ttsUrl))?.recording ?? null;
-	}
-	function urlToPlay(requested) {
-		return replacementFor(requested) ?? requested;
-	}
-	function forget(ttsUrls) {
-		for (const url of ttsUrls) recordings.delete(canonicalAudioUrl(url));
-	}
-	function forgetAll() {
-		recordings.clear();
-	}
-	function canonicalAudioUrl(url) {
-		try {
-			return decodeURI(url);
-		} catch {
-			return url;
-		}
-	}
 	var lookups = new Map();
 	var REMEMBERED = 50;
 	async function findReplacement(audio) {
@@ -1834,7 +2198,10 @@ input.bb-correct-guess {
 		const [recording, origin] = await Promise.all([lookup.recording, lookup.origin]);
 		if (recording !== null && origin !== null && lookups.get(word) === lookup) {
 			remember(lookup.ttsUrls, recording, origin);
-			return origin;
+			return {
+				origin,
+				url: recording
+			};
 		}
 		return null;
 	}
@@ -1871,16 +2238,18 @@ input.bb-correct-guess {
 			const bunpro = bunproOrigin(item.has_tts_audio);
 			onOrigins({
 				answer: bunpro,
-				details: bunpro
+				details: bunpro,
+				answerPlayUrl: null
 			});
-			const leaveAnswerOnBunpro = !options.ignoreExampleAudio && exampleOnScreenHasAudio();
 			const audio = synthesisedTermAudio(item);
 			if (!audio) return;
-			const replacement = await findReplacement(audio);
-			if (replacement === null) return;
+			const hit = await findReplacement(audio);
+			const leaveAnswerOnBunpro = !options.ignoreExampleAudio && exampleOnScreenHasAudio();
+			const bunproPlayUrl = prefetchAudioHref() ?? audio.ttsUrls[0] ?? null;
 			onOrigins({
-				answer: leaveAnswerOnBunpro ? bunpro : replacement,
-				details: replacement
+				answer: leaveAnswerOnBunpro ? bunpro : hit?.origin ?? bunpro,
+				details: hit?.origin ?? bunpro,
+				answerPlayUrl: leaveAnswerOnBunpro ? bunproPlayUrl : hit?.url ?? bunproPlayUrl
 			});
 		} catch (error) {
 			warnOnce("term-audio", "Could not replace synthesised term audio:", error);
@@ -1904,8 +2273,14 @@ input.bb-correct-guess {
 			}
 		});
 		HTMLMediaElement.prototype.play = function playReplaced() {
+			if (isAnswerBarReplayAudio(this)) return natives.play.call(this);
 			const replacement = replacementFor(this.src);
 			if (replacement !== null && this.src !== replacement) this.src = replacement;
+			if (takeOverBunproAnswerPlay(this, this.src, replacement)) {
+				markTermAudioPlayedViaBunpro();
+				return natives.play.call(this);
+			}
+			markTermAudioPlayedViaBunpro();
 			return natives.play.call(this);
 		};
 		installed = true;
@@ -2013,6 +2388,7 @@ input.bb-correct-guess {
 	var shownAnswerOrigin = null;
 	var shownDetailsOrigin = null;
 	var shownExampleOrigins = null;
+	var shownAnswerPlayUrl = null;
 	var cueAfterReady = false;
 	var humanTermAudioFeature = {
 		id: "human-term-audio",
@@ -2022,10 +2398,23 @@ input.bb-correct-guess {
 		start() {
 			injectStyles();
 			startReplacingAudio();
+			setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
+			setTermAutoplayPlayer(playAnswerBarRecording);
 			stopWatchingQuiz$1 = watchQuizState(onQuizStateChange$1);
 			stopWatchingRemounts = watchBodyRemounts(() => {
 				const state = readQuizState();
-				if (state.reviewable && reviewKey(state) !== null) {
+				const review = state.reviewable ? reviewKey(state) : null;
+				if (review !== null && shownFor === review && (shownAnswerOrigin !== null || shownDetailsOrigin !== null)) {
+					if (shownAnswerOrigin !== null && isRealAudioOrigin(shownAnswerOrigin) && exampleOnScreenHasAudio()) {
+						shownAnswerOrigin = "bunpro-tts";
+						const prefetch = prefetchAudioHref();
+						if (prefetch) shownAnswerPlayUrl = prefetch;
+						cancelScheduledTermAutoplay();
+					}
+					paintCues();
+					return;
+				}
+				if (state.reviewable && review !== null) {
 					refreshReview(state);
 					return;
 				}
@@ -2041,10 +2430,15 @@ input.bb-correct-guess {
 			stopReplacingAudio();
 			forgetReplacements();
 			clearAudioSourceIndicator();
+			clearAnswerBarReplay();
+			setTermAutoplaySkipWhen(null);
+			setTermAutoplayPlayer(null);
+			resetTermAutoplayState();
 			shownFor = null;
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
 			shownExampleOrigins = null;
+			shownAnswerPlayUrl = null;
 			cueAfterReady = false;
 		}
 	};
@@ -2065,19 +2459,30 @@ input.bb-correct-guess {
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
 			shownExampleOrigins = null;
+			shownAnswerPlayUrl = null;
 			clearAudioSourceIndicator();
+			clearAnswerBarReplay();
+			setActiveTermAutoplayReview(review);
 		}
 		loadExampleOrigins(term, () => reviewKey(readQuizState()) === review);
 		if (term.type !== "vocab") {
-			if (shownExampleOrigins !== null) paintCues();
+			adoptBunproAnswerClip(review);
+			if (shownExampleOrigins !== null || shownAnswerPlayUrl !== null) paintCues();
 			return;
 		}
 		await loadTermAudio(term, (origins) => {
 			if (reviewKey(readQuizState()) !== review) return;
 			shownFor = review;
-			shownAnswerOrigin = origins.answer;
+			const keepBunproAnswer = shownAnswerOrigin !== null && !isRealAudioOrigin(shownAnswerOrigin) && isRealAudioOrigin(origins.answer) && exampleOnScreenHasAudio();
+			shownAnswerOrigin = keepBunproAnswer ? shownAnswerOrigin : origins.answer;
 			shownDetailsOrigin = origins.details;
+			shownAnswerPlayUrl = origins.answerPlayUrl;
+			if (keepBunproAnswer) {
+				const prefetch = prefetchAudioHref();
+				if (prefetch) shownAnswerPlayUrl = prefetch;
+			}
 			paintCues();
+			maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin);
 		});
 		if (reviewKey(readQuizState()) !== review) return;
 		if (shownFor === review && shownAnswerOrigin === null && shownDetailsOrigin === null && shownExampleOrigins === null) clearShown();
@@ -2153,19 +2558,44 @@ input.bb-correct-guess {
 		} catch {}
 	}
 	function paintCues() {
+		const afterSubmit = cueAfterReady || readQuizState().isPostAttempt;
+		syncAnswerBarReplay({
+			enabled: afterSubmit,
+			playUrl: shownAnswerPlayUrl
+		});
 		syncAudioSourceIndicator({
-			afterSubmit: cueAfterReady || readQuizState().isPostAttempt,
+			afterSubmit,
 			answerOrigin: shownAnswerOrigin,
 			detailsOrigin: shownDetailsOrigin,
 			exampleOrigins: shownExampleOrigins
 		});
+	}
+	function adoptBunproAnswerClip(review) {
+		if (!readQuizState().isPostAttempt) return;
+		const url = prefetchAudioHref();
+		if (!url) return;
+		shownFor = review;
+		shownAnswerOrigin = bunproClipOrigin(url) ?? "bunpro-rec";
+		shownAnswerPlayUrl = url;
+		maybeAutoplayTermRecording(review, url, shownAnswerOrigin);
+	}
+	function maybeAutoplayTermRecording(review, playUrl, _answerOrigin) {
+		if (!playUrl) {
+			cancelScheduledTermAutoplay();
+			return;
+		}
+		if (!readQuizState().isPostAttempt) return;
+		scheduleTermRecordingAutoplay(review, playUrl);
 	}
 	function clearShown() {
 		shownFor = null;
 		shownAnswerOrigin = null;
 		shownDetailsOrigin = null;
 		shownExampleOrigins = null;
+		shownAnswerPlayUrl = null;
 		cueAfterReady = false;
+		setActiveTermAutoplayReview(null);
+		clearAnswerBarReplay();
 		clearAudioSourceIndicator();
 	}
 	function bunproSentenceIndex(sentences) {
@@ -2280,7 +2710,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.9.0";
+	var version = "0.9.1";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;

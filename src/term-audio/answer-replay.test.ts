@@ -77,7 +77,9 @@ describe('syncAnswerBarReplay', () => {
 
     const button = document.getElementById('bb-answer-bar-replay');
     expect(button).toBeInstanceOf(HTMLButtonElement);
-    expect(button?.closest('.InputManual')).not.toBeNull();
+    expect(button?.parentElement?.classList.contains('InputManual')).toBe(true);
+    expect(button?.parentElement?.querySelector(':scope > div.p-6')).not.toBeNull();
+    expect(button?.closest('div.p-6')).toBeNull();
   });
 
   it('does not inject when disabled or waiting for a play URL', () => {

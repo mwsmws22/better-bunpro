@@ -11,7 +11,7 @@ Built with [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey). 
 - Don't spoil the answer on a wrong typed guess
 - Add a missed vocab translation as a synonym (button or **S**)
 - Left Arrow to re-edit a wrong answer without deleting the last character
-- Real speaker audio instead of synthesised term TTS
+- Real speaker audio instead of synthesised term TTS (answer-bar play ↔ pause, including autoplay)
 - Fully hide review SRS (pairs with Bunpro’s Review SRS → Hide)
 
 Full Greasy Fork descriptions: [`greasyfork-additional-info.md`](./greasyfork-additional-info.md).

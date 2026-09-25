@@ -162,48 +162,39 @@ function ensureReplayButton(url: string): void {
     return;
   }
 
-  const slot = findOrCreateReplaySlot();
-  if (!slot) {
+  const answerConsole = findAnswerConsole();
+  if (!answerConsole) {
     return;
+  }
+
+  // Bunpro’s play is a direct `.InputManual` flex sibling beside an empty `p-6`
+  // spacer. Putting our toggle *inside* that spacer made it 48×48 and grew the
+  // green answer bar vs Bunpro’s 36×36 play control.
+  const stray = answerConsole.querySelector(`#${ANSWER_BAR_REPLAY_ID}`);
+  stray?.remove();
+  for (const spacer of answerConsole.querySelectorAll(':scope > div.p-6')) {
+    spacer.replaceChildren();
   }
 
   const button = buildReplayButton(url);
   if (currentAudio && !currentAudio.paused) {
     button.classList.add(PLAYING_CLASS);
   }
-  slot.replaceChildren(button);
-}
-
-function findOrCreateReplaySlot(): HTMLElement | null {
-  const answerConsole = findAnswerConsole();
-  if (!answerConsole) {
-    return null;
-  }
-
-  const spacer = answerConsole.querySelector<HTMLElement>(':scope > div.p-6');
-  if (spacer) {
-    return spacer;
-  }
 
   const form = answerConsole.querySelector(':scope > form, :scope > .InputManual__form');
-  const wrap = element('div', { class: 'p-6' });
-  if (form) {
-    answerConsole.insertBefore(wrap, form);
+  const spacer = answerConsole.querySelector(':scope > div.p-6');
+  if (spacer) {
+    answerConsole.insertBefore(button, spacer);
+  } else if (form) {
+    answerConsole.insertBefore(button, form);
   } else {
-    answerConsole.prepend(wrap);
+    answerConsole.prepend(button);
   }
-  return wrap;
 }
 
 function buildReplayButton(url: string): HTMLButtonElement {
-  const playIcon = svgIcon(
-    'h-24 w-24 bb-replay-play',
-    `<path d="${PLAY_CIRCLE_PATH}" fill="currentColor"/>`,
-  );
-  const pauseIcon = svgIcon(
-    'h-24 w-24 bb-replay-pause',
-    `<path d="${PAUSE_PATH}" fill="currentColor"/>`,
-  );
+  const playIcon = sizedPlaySvg('bb-replay-play', PLAY_CIRCLE_PATH);
+  const pauseIcon = sizedPlaySvg('bb-replay-pause', PAUSE_PATH);
   const sizing = element(
     'div',
     { class: 'bp-hover-bg__child rounded-normal', style: 'font-size: 2.25rem;' },
@@ -224,7 +215,8 @@ function buildReplayButton(url: string): HTMLButtonElement {
     {
       id: ANSWER_BAR_REPLAY_ID,
       type: 'button',
-      class: 'block transition-opacity',
+      // Match Bunpro’s answer-bar play classes (no `block` — that changed flex sizing).
+      class: 'transition-opacity',
       'data-bb-play-url': url,
     },
     [sizing],
@@ -235,6 +227,13 @@ function buildReplayButton(url: string): HTMLButtonElement {
     togglePlayback();
   });
   return button;
+}
+
+/** Same em-sized SVG Bunpro uses inside the 2.25rem play control. */
+function sizedPlaySvg(className: string, path: string): SVGSVGElement {
+  const icon = svgIcon(`h-24 w-24 ${className}`, `<path d="${path}" fill="currentColor"/>`);
+  icon.setAttribute('style', 'width: 0.666667em; height: 0.666667em;');
+  return icon;
 }
 
 function togglePlayback(): void {
