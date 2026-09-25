@@ -25,6 +25,8 @@ const TTS_ITEM: Reviewable = {
   female_audio_url: null,
 };
 
+const JPOD_HIT = { origin: 'jpod101' as const, url: 'blob:jpod' };
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.mocked(exampleOnScreenHasAudio).mockReturnValue(false);
@@ -41,41 +43,45 @@ describe('loadTermAudio', () => {
   it('keeps the answer bar on Bunpro when the example has audio, but still looks up for Details', async () => {
     vi.spyOn(api, 'fetchReviewable').mockResolvedValue(TTS_ITEM);
     vi.mocked(exampleOnScreenHasAudio).mockReturnValue(true);
-    vi.mocked(findReplacement).mockResolvedValue('jpod101');
+    vi.mocked(findReplacement).mockResolvedValue(JPOD_HIT);
 
     const origins = await collectOrigins((onOrigins) => loadTermAudio(TERM, onOrigins));
 
     expect(findReplacement).toHaveBeenCalled();
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts' },
-      { answer: 'bunpro-tts', details: 'jpod101' },
+      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
+      {
+        answer: 'bunpro-tts',
+        details: 'jpod101',
+        answerPlayUrl: 'https://cdn.example/委ねる-male.mp3',
+      },
     ]);
   });
 
   it('uses the recording for both controls when the example on screen has no audio', async () => {
     vi.spyOn(api, 'fetchReviewable').mockResolvedValue(TTS_ITEM);
-    vi.mocked(findReplacement).mockResolvedValue('jpod101');
+    vi.mocked(findReplacement).mockResolvedValue(JPOD_HIT);
 
     const origins = await collectOrigins((onOrigins) => loadTermAudio(TERM, onOrigins));
 
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts' },
-      { answer: 'jpod101', details: 'jpod101' },
+      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
+      { answer: 'jpod101', details: 'jpod101', answerPlayUrl: 'blob:jpod' },
     ]);
   });
 
   it('uses the recording for both when ignoreExampleAudio is set', async () => {
     vi.spyOn(api, 'fetchReviewable').mockResolvedValue(TTS_ITEM);
     vi.mocked(exampleOnScreenHasAudio).mockReturnValue(true);
-    vi.mocked(findReplacement).mockResolvedValue('jpod101');
+    vi.mocked(findReplacement).mockResolvedValue(JPOD_HIT);
 
     const origins = await collectOrigins((onOrigins) =>
       loadTermAudio(TERM, onOrigins, { ignoreExampleAudio: true }),
     );
 
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts' },
-      { answer: 'jpod101', details: 'jpod101' },
+      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
+      { answer: 'jpod101', details: 'jpod101', answerPlayUrl: 'blob:jpod' },
     ]);
   });
 });

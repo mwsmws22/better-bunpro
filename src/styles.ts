@@ -98,18 +98,41 @@ const CSS = `
   padding: 0 0.375rem 0.5rem;
 }
 /**
- * Outweigh Bunpro's \`text-primary-fg\` on the answer-bar play control when a
- * real recording (not TTS) will play after the answer is in.
+ * Outweigh Bunpro's \`text-primary-fg\` / \`text-primary-accent\` on the answer-bar
+ * play and pause controls when a real recording (not TTS) will play after the
+ * answer is in. Pause keeps Bunpro’s accent class while open — \`!important\`
+ * beats it for white TTS and blue real-recording cues. Do not style CANCEL;
+ * that close control stays Bunpro’s accent.
  */
 button.bb-audio-real {
-  color: rgb(var(--c-primary-accent) / 1);
+  color: rgb(var(--c-primary-accent) / 1) !important;
 }
 /**
  * Details pitch-accent play is Bunpro-accent by default — force primary fg when
  * only synthesised audio will play, so the tint means a real recording.
  */
 button.bb-audio-tts {
-  color: rgb(var(--c-primary-fg) / 1);
+  color: rgb(var(--c-primary-fg) / 1) !important;
+}
+/** Injected answer-bar toggle: swap play↔pause without remounting. */
+#bb-answer-bar-replay .bb-replay-pause {
+  display: none;
+}
+#bb-answer-bar-replay.bb-replay-playing .bb-replay-play {
+  display: none;
+}
+#bb-answer-bar-replay.bb-replay-playing .bb-replay-pause {
+  display: block;
+}
+/** Hide Bunpro’s answer-console audio chrome only while our toggle is mounted. */
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="PLAY_CIRCLE_FILLED"]) {
+  display: none !important;
+}
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="PAUSE"]) {
+  display: none !important;
+}
+.InputManual:has(#bb-answer-bar-replay) > button:has(svg[data-name="CANCEL"]) {
+  display: none !important;
 }
 html.bb-skipping-undo-modal .Modal,
 html.bb-skipping-undo-modal #tooltip-portal,
@@ -159,11 +182,12 @@ input.bb-correct-guess {
 `;
 
 export function injectStyles(): void {
-  if (document.getElementById(STYLE_ID)) {
-    return;
+  let style = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = STYLE_ID;
+    document.head.append(style);
   }
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
+  // Always refresh so HMR / feature restart picks up new rules (hide Bunpro play, etc.).
   style.textContent = CSS;
-  document.head.append(style);
 }

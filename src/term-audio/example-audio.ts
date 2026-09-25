@@ -33,13 +33,19 @@ const SENTENCE_PLAY = 'button[title="Play audio"]';
  * - Do **not** trust `/audio/vocab/tts/` prefetch alone. Bunpro can leave the
  *   *previous* review’s sentence TTS prefetch while the new card is term-only
  *   (answer plays JPod, cue stayed white). Require a sentence surface too.
+ * - Do **not** treat cloze prompt + leftover `/tts/` prefetch as example audio.
+ *   Cloze always has a sentence on screen; prefetch often lags a card behind
+ *   (silence when Bunpro’s play is “Audio not available” and we blocked JPod).
  * - Do **not** require the speaker to be visible. After submit, the sentence can
  *   be on screen with Bunpro’s play still size-hidden while prefetch already
  *   points at the sentence TTS file.
  * - Reliable signals: our injected `shownSentence` audio URLs, a real
  *   `study-question-*` / `data-bb-study-question` card with a play button, a
- *   **visible** sentence play button, or sentence surface + prefetch under
- *   `/audio/vocab/tts/` (sentence) vs `/audio/vocab/pronunciation/` (term).
+ *   **visible** sentence play button, study-question / injected surface +
+ *   prefetch under `/audio/vocab/tts/`, cloze with `/tts/` prefetch unless Bunpro
+ *   shows “Audio not available…”, or question text that **matches** the `/tts/`
+ *   prefetch filename (furigana-tolerant subsequence). Cloze blanks omit the
+ *   answer word; after submit the footer Play control often disappears too.
  */
 export function exampleOnScreenHasAudio(): boolean {
   const shown = shownSentence();
@@ -56,7 +62,7 @@ export function exampleOnScreenHasAudio(): boolean {
 
   const article = findQuizArticle();
   if (!article) {
-    return quizHasExampleSentenceSurface(null) && prefetchIsExampleSentenceAudio();
+    return prefetchBackedSentenceAudio(null);
   }
   if (article.querySelector(`aside[data-bb-study-question] ${SENTENCE_PLAY}`)) {
     return true;
@@ -64,28 +70,115 @@ export function exampleOnScreenHasAudio(): boolean {
   if (quizHasVisibleSentencePlay(article)) {
     return true;
   }
-  return quizHasExampleSentenceSurface(article) && prefetchIsExampleSentenceAudio();
+  return prefetchBackedSentenceAudio(article);
 }
 
 function studyQuestionHasAudio(sentence: StudyQuestion): boolean {
   return sentence.male_audio_url !== null || sentence.female_audio_url !== null;
 }
 
-/** Sentence card / cloze / our injection — not the hidden footer leftovers. */
-function quizHasExampleSentenceSurface(article: HTMLElement | null): boolean {
-  if (shownSentence()) {
-    return true;
+/**
+ * Prefetch `/tts/` only with a sentence surface — study-question / injected
+ * card, cloze that is not “Audio not available…”, or question text that matches
+ * the prefetch filename (not a lagging leftover from the previous review).
+ */
+function prefetchBackedSentenceAudio(article: HTMLElement | null): boolean {
+  if (!prefetchIsExampleSentenceAudio()) {
+    return false;
   }
   if (findNativeSentenceCard()) {
-    return true;
-  }
-  if (findClozeSentence()) {
     return true;
   }
   if (article?.querySelector(`aside[data-bb-study-question], [id^="study-question-"]`)) {
     return true;
   }
-  return false;
+  // Injected example slot without a clip already returned false above; if the
+  // slot is mounted we still allow prefetch (play may be hidden after submit).
+  if (shownSentence()) {
+    return true;
+  }
+  // Cloze: blank drops the answer word from the prompt, and after submit Bunpro
+  // often removes the footer Play control entirely. Prefer `/tts/` prefetch on a
+  // cloze prompt unless Bunpro explicitly says audio is unavailable (that is the
+  // leftover-prefetch / silence case). Term-only leftovers have no cloze prompt.
+  if (article && clozeHasPrefetchedSentenceAudio(article)) {
+    return true;
+  }
+  return prefetchMatchesOnScreenSentence(article);
+}
+
+/**
+ * Cloze + current `/tts/` prefetch means sentence audio, except when Bunpro’s
+ * only sentence control is “Audio not available…” (stale prefetch must not block
+ * term JPod). A leftover hidden “not available” must not win over a real Play.
+ */
+function clozeHasPrefetchedSentenceAudio(article: HTMLElement): boolean {
+  if (!article.querySelector('.bp-quiz-question')) {
+    return false;
+  }
+  if (article.querySelector(SENTENCE_PLAY)) {
+    return true;
+  }
+  if (article.querySelector('button[title="Audio not available for this item yet"]')) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * When the full sentence is on screen (no cloze blank gap), Bunpro’s `/tts/`
+ * prefetch filename is the bare sentence while the prompt may mix in furigana.
+ * Treat as current when every character of the prefetch stem appears in order.
+ */
+function prefetchMatchesOnScreenSentence(article: HTMLElement | null): boolean {
+  const stem = prefetchSentenceStem();
+  if (!stem) {
+    return false;
+  }
+  const onScreen = onScreenSentenceText(article);
+  if (!onScreen) {
+    return false;
+  }
+  return isCharacterSubsequence(stem, onScreen);
+}
+
+function prefetchSentenceStem(): string | null {
+  const href =
+    document.querySelector<HTMLLinkElement>('link#prefetch-audio')?.href ??
+    document.querySelector<HTMLLinkElement>('link[rel="prefetch"][as="audio"]')?.href ??
+    null;
+  if (!href || !href.includes('/audio/vocab/tts/')) {
+    return null;
+  }
+  let file: string;
+  try {
+    file = decodeURIComponent(href.slice(href.lastIndexOf('/') + 1));
+  } catch {
+    return null;
+  }
+  const stem = file.replace(/-(male|female)\.mp3$/i, '');
+  return stem.length > 0 ? stem : null;
+}
+
+function onScreenSentenceText(article: HTMLElement | null): string {
+  const cloze = article?.querySelector('.bp-quiz-question')?.textContent?.trim();
+  if (cloze) {
+    return cloze;
+  }
+  return findClozeSentence()?.textContent?.trim() ?? '';
+}
+
+/** True when every character of `needle` appears in order in `haystack`. */
+function isCharacterSubsequence(needle: string, haystack: string): boolean {
+  let from = 0;
+  for (const ch of needle) {
+    const at = haystack.indexOf(ch, from);
+    if (at === -1) {
+      return false;
+    }
+    from = at + 1;
+  }
+  return true;
 }
 
 /** Visible speakers only — ignores Bunpro’s hidden footer leftovers. */

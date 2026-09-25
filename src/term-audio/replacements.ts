@@ -16,9 +16,11 @@ const REMEMBERED = 50;
 
 /**
  * Resolves once we know whether this word has a recording; one lookup per word.
- * Returns the dictionary origin when a recording was filed, otherwise null.
+ * Returns the dictionary origin and blob URL when a recording was filed.
  */
-export async function findReplacement(audio: SynthesisedAudio): Promise<AudioOrigin | null> {
+export async function findReplacement(
+  audio: SynthesisedAudio,
+): Promise<{ origin: AudioOrigin; url: string } | null> {
   const word = `${audio.term}|${audio.reading}`;
   let lookup = lookups.get(word);
   if (!lookup) {
@@ -35,7 +37,7 @@ export async function findReplacement(audio: SynthesisedAudio): Promise<AudioOri
   const [recording, origin] = await Promise.all([lookup.recording, lookup.origin]);
   if (recording !== null && origin !== null && lookups.get(word) === lookup) {
     remember(lookup.ttsUrls, recording, origin);
-    return origin;
+    return { origin, url: recording };
   }
   return null;
 }

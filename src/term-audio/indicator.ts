@@ -4,6 +4,7 @@ import {
   findExamplesListPlayControls,
   studyQuestionIdOfPlayControl,
 } from '../bunpro/quiz-dom';
+import { findAnswerBarReplayControl } from './answer-replay';
 import type { AudioOrigin } from './origin';
 import { isRealAudioOrigin, labelForOrigin } from './origin';
 
@@ -35,7 +36,8 @@ export interface AudioSourceCue {
  */
 export function syncAudioSourceIndicator(cue: AudioSourceCue): void {
   removeLegacyChip();
-  const answer = findAnswerBarAudioControl();
+  // Prefer our visible toggle — Bunpro’s play is CSS-hidden when we own the bar.
+  const answer = findAnswerBarReplayControl() ?? findAnswerBarAudioControl();
   if (answer && cue.answerOrigin) {
     paintControl(answer, cue.answerOrigin, cue.afterSubmit);
   }
@@ -98,9 +100,10 @@ function rememberPlayTitle(control: HTMLElement): void {
 }
 
 function paintedControls(): HTMLElement[] {
-  const controls = [findAnswerBarAudioControl(), findDetailsPitchPlay()].filter(
-    (el): el is HTMLElement => el !== null,
-  );
+  const controls = [
+    findAnswerBarReplayControl() ?? findAnswerBarAudioControl(),
+    findDetailsPitchPlay(),
+  ].filter((el): el is HTMLElement => el !== null);
   controls.push(...findExamplesListPlayControls());
   return controls;
 }

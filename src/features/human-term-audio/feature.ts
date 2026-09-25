@@ -3,11 +3,26 @@ import { readQuizState, watchQuizState, type QuizState } from '../../bunpro/quiz
 import { reviewKey } from '../../bunpro/review';
 import { watchBodyRemounts } from '../../dom/remount';
 import { injectStyles } from '../../styles';
-import { exampleOriginsFromSentences } from '../../term-audio/example-audio';
+import {
+  cancelScheduledTermAutoplay,
+  resetTermAutoplayState,
+  scheduleTermRecordingAutoplay,
+  setActiveTermAutoplayReview,
+  setTermAutoplayPlayer,
+  setTermAutoplaySkipWhen,
+} from '../../term-audio/autoplay';
+import {
+  clearAnswerBarReplay,
+  playAnswerBarRecording,
+  syncAnswerBarReplay,
+} from '../../term-audio/answer-replay';
+import { exampleOnScreenHasAudio, exampleOriginsFromSentences } from '../../term-audio/example-audio';
 import { grammarSlugFromPath, reviewableFromGrammarSlug } from '../../term-audio/grammar-page';
 import { clearAudioSourceIndicator, syncAudioSourceIndicator } from '../../term-audio/indicator';
 import { loadTermAudio } from '../../term-audio/load';
 import type { AudioOrigin } from '../../term-audio/origin';
+import { bunproClipOrigin, isRealAudioOrigin } from '../../term-audio/origin';
+import { prefetchAudioHref } from '../../term-audio/prefetch-audio';
 import { startReplacingAudio, stopReplacingAudio } from '../../term-audio/playback';
 import { forgetReplacements } from '../../term-audio/replacements';
 import { reviewableFromVocabSlug, vocabSlugFromPath } from '../../term-audio/vocab-page';
@@ -19,6 +34,8 @@ let shownFor: string | null = null;
 let shownAnswerOrigin: AudioOrigin | null = null;
 let shownDetailsOrigin: AudioOrigin | null = null;
 let shownExampleOrigins: Map<number, AudioOrigin> | null = null;
+/** Blob URL for answer-bar replay when Bunpro left the play slot empty. */
+let shownAnswerPlayUrl: string | null = null;
 /** Details / grammar pages tint as soon as origins are ready — no answer step. */
 let cueAfterReady = false;
 
@@ -34,10 +51,37 @@ export const humanTermAudioFeature: Feature = {
   start() {
     injectStyles();
     startReplacingAudio();
+    setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
+    setTermAutoplayPlayer(playAnswerBarRecording);
     stopWatchingQuiz = watchQuizState(onQuizStateChange);
     stopWatchingRemounts = watchBodyRemounts(() => {
       const state = readQuizState();
-      if (state.reviewable && reviewKey(state) !== null) {
+      const review = state.reviewable ? reviewKey(state) : null;
+      // Same card already resolved — only re-paint. Never re-load / re-inject on
+      // our own DOM writes (answer-bar replay) or Bunpro’s play↔pause swaps.
+      if (
+        review !== null &&
+        shownFor === review &&
+        (shownAnswerOrigin !== null || shownDetailsOrigin !== null)
+      ) {
+        // Sentence audio became detectable after the first load (Play control
+        // appeared). Flip the answer cue off JPod without re-fetching.
+        if (
+          shownAnswerOrigin !== null &&
+          isRealAudioOrigin(shownAnswerOrigin) &&
+          exampleOnScreenHasAudio()
+        ) {
+          shownAnswerOrigin = 'bunpro-tts';
+          const prefetch = prefetchAudioHref();
+          if (prefetch) {
+            shownAnswerPlayUrl = prefetch;
+          }
+          cancelScheduledTermAutoplay();
+        }
+        paintCues();
+        return;
+      }
+      if (state.reviewable && review !== null) {
         void refreshReview(state);
         return;
       }
@@ -60,10 +104,15 @@ export const humanTermAudioFeature: Feature = {
     stopReplacingAudio();
     forgetReplacements();
     clearAudioSourceIndicator();
+    clearAnswerBarReplay();
+    setTermAutoplaySkipWhen(null);
+    setTermAutoplayPlayer(null);
+    resetTermAutoplayState();
     shownFor = null;
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
     shownExampleOrigins = null;
+    shownAnswerPlayUrl = null;
     cueAfterReady = false;
   },
 };
@@ -89,13 +138,18 @@ async function refreshReview(state: QuizState): Promise<void> {
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
     shownExampleOrigins = null;
+    shownAnswerPlayUrl = null;
     clearAudioSourceIndicator();
+    clearAnswerBarReplay();
+    setActiveTermAutoplayReview(review);
   }
 
   void loadExampleOrigins(term, () => reviewKey(readQuizState()) === review);
 
   if (term.type !== 'vocab') {
-    if (shownExampleOrigins !== null) {
+    // Grammar (and other non-vocab): own Bunpro’s clip as play↔pause when present.
+    adoptBunproAnswerClip(review);
+    if (shownExampleOrigins !== null || shownAnswerPlayUrl !== null) {
       paintCues();
     }
     return;
@@ -106,9 +160,24 @@ async function refreshReview(state: QuizState): Promise<void> {
       return;
     }
     shownFor = review;
-    shownAnswerOrigin = origins.answer;
+    // Cloze sentence detection can flicker after submit (Play control unmounts).
+    // Once this review’s answer bar is on Bunpro TTS, do not flip it to JPod.
+    const keepBunproAnswer =
+      shownAnswerOrigin !== null &&
+      !isRealAudioOrigin(shownAnswerOrigin) &&
+      isRealAudioOrigin(origins.answer) &&
+      exampleOnScreenHasAudio();
+    shownAnswerOrigin = keepBunproAnswer ? shownAnswerOrigin : origins.answer;
     shownDetailsOrigin = origins.details;
+    shownAnswerPlayUrl = origins.answerPlayUrl;
+    if (keepBunproAnswer) {
+      const prefetch = prefetchAudioHref();
+      if (prefetch) {
+        shownAnswerPlayUrl = prefetch;
+      }
+    }
     paintCues();
+    maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin!);
   });
 
   if (reviewKey(readQuizState()) !== review) {
@@ -242,12 +311,49 @@ async function loadExampleOrigins(
 }
 
 function paintCues(): void {
+  const afterSubmit = cueAfterReady || readQuizState().isPostAttempt;
+  // Always own the answer bar as play↔pause when we have a clip — never Bunpro’s
+  // X / timer open-player chrome.
+  syncAnswerBarReplay({
+    enabled: afterSubmit && shownAnswerPlayUrl !== null,
+    playUrl: shownAnswerPlayUrl,
+  });
   syncAudioSourceIndicator({
-    afterSubmit: cueAfterReady || readQuizState().isPostAttempt,
+    afterSubmit,
     answerOrigin: shownAnswerOrigin,
     detailsOrigin: shownDetailsOrigin,
     exampleOrigins: shownExampleOrigins,
   });
+}
+
+/** Grammar reviews: drive the answer bar from Bunpro’s prefetch clip. */
+function adoptBunproAnswerClip(review: string): void {
+  if (!readQuizState().isPostAttempt) {
+    return;
+  }
+  const url = prefetchAudioHref();
+  if (!url) {
+    return;
+  }
+  shownFor = review;
+  shownAnswerOrigin = bunproClipOrigin(url) ?? 'bunpro-rec';
+  shownAnswerPlayUrl = url;
+  maybeAutoplayTermRecording(review, url, shownAnswerOrigin);
+}
+
+function maybeAutoplayTermRecording(
+  review: string,
+  playUrl: string | null,
+  _answerOrigin: AudioOrigin,
+): void {
+  if (!playUrl) {
+    cancelScheduledTermAutoplay();
+    return;
+  }
+  if (!readQuizState().isPostAttempt) {
+    return;
+  }
+  scheduleTermRecordingAutoplay(review, playUrl);
 }
 
 function clearShown(): void {
@@ -255,6 +361,9 @@ function clearShown(): void {
   shownAnswerOrigin = null;
   shownDetailsOrigin = null;
   shownExampleOrigins = null;
+  shownAnswerPlayUrl = null;
   cueAfterReady = false;
+  setActiveTermAutoplayReview(null);
+  clearAnswerBarReplay();
   clearAudioSourceIndicator();
 }

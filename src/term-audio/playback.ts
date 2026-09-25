@@ -1,4 +1,6 @@
 import { replacementFor, urlToPlay } from './store';
+import { markTermAudioPlayedViaBunpro } from './autoplay';
+import { isAnswerBarReplayAudio, takeOverBunproAnswerPlay } from './answer-replay';
 
 /**
  * True browser natives, kept on globalThis so a Vite HMR remount of this module
@@ -20,7 +22,8 @@ let installed = false;
 /**
  * Bunpro plays term audio on a detached `Audio` element, so there is nothing in
  * the page to rewrite. We stand in front of `src` and `play` instead: when
- * Bunpro points that element at a synthesised clip, it loads the recording.
+ * Bunpro points that element at a synthesised clip, it loads the recording —
+ * except the answer bar, which we own as a simple play↔pause toggle.
  */
 export function startReplacingAudio(): void {
   const natives = mediaNatives();
@@ -36,10 +39,21 @@ export function startReplacingAudio(): void {
   });
 
   HTMLMediaElement.prototype.play = function playReplaced(this: HTMLMediaElement) {
+    if (isAnswerBarReplayAudio(this)) {
+      return natives.play.call(this);
+    }
+
     const replacement = replacementFor(this.src);
     if (replacement !== null && this.src !== replacement) {
       this.src = replacement;
     }
+
+    if (takeOverBunproAnswerPlay(this.src, replacement)) {
+      markTermAudioPlayedViaBunpro();
+      return Promise.resolve();
+    }
+
+    markTermAudioPlayedViaBunpro();
     return natives.play.call(this);
   };
 

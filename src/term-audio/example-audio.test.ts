@@ -137,6 +137,113 @@ describe('exampleOnScreenHasAudio', () => {
     expect(exampleOnScreenHasAudio()).toBe(false);
   });
 
+  it('ignores leftover sentence-TTS prefetch on a cloze review without a sentence play control', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">この問題は穏便に取り扱われる…</div>
+            </div>
+          </section>
+          <footer>
+            <button title="Audio not available for this item yet" disabled></button>
+          </footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/レッスンを怠けていてばかりだったので-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(false);
+  });
+
+  it('is true when cloze sentence TTS prefetch matches the on-screen sentence (play may be hidden)', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="[ QuestionSentenceQuestionCloze] bp-quiz-question relative">
+              <div class="text-center">抽象ちゅうしょうの概念がいねんを理解りかいする。</div>
+            </div>
+          </section>
+          <footer>
+            <div class="hidden">
+              <button title="Play audio"></button>
+            </div>
+          </footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('抽象の概念を理解する。')}-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(true);
+  });
+
+  it('is true when cloze has sentence Play audio and current /tts/ prefetch (blank omits the answer word)', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="[ QuestionSentenceQuestionCloze] bp-quiz-question relative">
+              <div class="text-center">妻：「これ以上私にを求めないでってば！」</div>
+            </div>
+          </section>
+          <footer>
+            <div class="hidden">
+              <button title="Play audio"></button>
+            </div>
+          </footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('妻：「これ以上私に譲歩を求めないでってば！」')}-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(true);
+  });
+
+  it('is true when cloze has /tts/ prefetch after submit even if Play audio is gone', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="[ QuestionSentenceQuestionCloze] bp-quiz-question relative">
+              <div class="text-center">三点差を覆して勝利するとは…</div>
+            </div>
+          </section>
+          <footer></footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('三点差を覆して勝利するとは…')}-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(true);
+  });
+
+  it('is true when cloze has /tts/ prefetch and Play audio even if a leftover Audio not available exists', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">三点差を覆して勝利するとは…</div>
+            </div>
+          </section>
+          <footer>
+            <div class="hidden">
+              <button title="Audio not available for this item yet" disabled></button>
+            </div>
+            <div class="hidden">
+              <button title="Play audio"></button>
+            </div>
+          </footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('三点差を覆して勝利するとは…')}-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(true);
+  });
+
   it('is false when the example on screen has no speaker', () => {
     document.body.innerHTML = `
       <div id="js-quiz">

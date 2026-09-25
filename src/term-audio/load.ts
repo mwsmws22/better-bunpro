@@ -5,6 +5,7 @@ import { warnOnce } from '../report';
 import { exampleOnScreenHasAudio } from './example-audio';
 import type { AudioOrigin } from './origin';
 import { bunproOrigin } from './origin';
+import { prefetchAudioHref } from './prefetch-audio';
 import { findReplacement } from './replacements';
 import { synthesisedTermAudio } from './term';
 
@@ -20,6 +21,11 @@ export interface LoadTermAudioOptions {
 export interface TermAudioOrigins {
   answer: AudioOrigin;
   details: AudioOrigin;
+  /**
+ * Blob / CDN URL for the answer-bar toggle. Always set when we can play
+ * something: JPod recording, or Bunpro’s own clip (sentence/term TTS via prefetch).
+ */
+  answerPlayUrl: string | null;
 }
 
 /**
@@ -33,8 +39,8 @@ export interface TermAudioOrigins {
  *    Otherwise the answer bar is term audio → same lookup as Details (blue when
  *    real).
  * 3. Detection rules live in `example-audio.ts` — hidden footer Play buttons are
- *    not examples; sentence TTS prefetch alone is not enough (stale previous-card
- *    `/tts/` left the answer bar white while JPod played).
+ *    not examples; cloze + leftover `/tts/` prefetch is not either (Bunpro may
+ *    show “Audio not available” for sentence play while term JPod should run).
  */
 export async function loadTermAudio(
   term: ReviewableRef,
@@ -48,24 +54,25 @@ export async function loadTermAudio(
     }
 
     const bunpro = bunproOrigin(item.has_tts_audio);
-    onOrigins({ answer: bunpro, details: bunpro });
-
-    const leaveAnswerOnBunpro =
-      !options.ignoreExampleAudio && exampleOnScreenHasAudio();
+    onOrigins({ answer: bunpro, details: bunpro, answerPlayUrl: null });
 
     const audio = synthesisedTermAudio(item);
     if (!audio) {
       return;
     }
 
-    const replacement = await findReplacement(audio);
-    if (replacement === null) {
-      return;
-    }
+    const hit = await findReplacement(audio);
+    // Re-check after the lookup — prefetch / sentence UI often lands while we wait.
+    const leaveAnswerOnBunpro =
+      !options.ignoreExampleAudio && exampleOnScreenHasAudio();
 
+    const bunproPlayUrl = prefetchAudioHref() ?? audio.ttsUrls[0] ?? null;
     onOrigins({
-      answer: leaveAnswerOnBunpro ? bunpro : replacement,
-      details: replacement,
+      answer: leaveAnswerOnBunpro ? bunpro : (hit?.origin ?? bunpro),
+      details: hit?.origin ?? bunpro,
+      // Always give the answer-bar toggle a URL — JPod when we own term audio,
+      // otherwise Bunpro’s prefetch / synthesised clip (no open-player chrome).
+      answerPlayUrl: leaveAnswerOnBunpro ? bunproPlayUrl : (hit?.url ?? bunproPlayUrl),
     });
   } catch (error) {
     warnOnce('term-audio', 'Could not replace synthesised term audio:', error);

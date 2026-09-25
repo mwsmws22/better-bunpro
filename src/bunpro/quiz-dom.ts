@@ -236,13 +236,14 @@ export function findTermAudioControl(): HTMLElement | null {
   return findTermAudioControls()[0] ?? null;
 }
 
-/** Play / pause / close at the left of the typed-answer console. */
+/** Play / pause at the left of the typed-answer console (not the blue close). */
 export function findAnswerBarAudioControl(): HTMLElement | null {
   const answerConsole = findAnswerConsole();
   if (!answerConsole) {
     return null;
   }
-  for (const name of ['PLAY_CIRCLE_FILLED', 'PAUSE', 'CANCEL'] as const) {
+  // Skip CANCEL — Bunpro’s close control stays accent-coloured on purpose.
+  for (const name of ['PLAY_CIRCLE_FILLED', 'PAUSE'] as const) {
     const button = answerConsole.querySelector(`button:has(svg[data-name="${name}"])`);
     if (button instanceof HTMLElement) {
       return button;

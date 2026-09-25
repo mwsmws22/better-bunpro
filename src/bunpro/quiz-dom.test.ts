@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAnswerIfShowing,
+  findAnswerBarAudioControl,
   findDetailsPitchPlay,
   findExamplesListPlayControls,
   findHotkeyGuideArticle,
@@ -82,6 +83,23 @@ describe('findTermAudioControl', () => {
       </div>
     `;
     expect(findTermAudioControls().map((el) => el.id)).toEqual(['answer', 'details']);
+  });
+
+  it('paints pause for the answer cue but ignores Bunpro’s close control', () => {
+    document.body.innerHTML = `
+      <div class="InputManual">
+        <button id="cancel"><svg data-name="CANCEL"></svg></button>
+        <button id="pause"><svg data-name="PAUSE"></svg></button>
+      </div>
+    `;
+    expect(findAnswerBarAudioControl()?.id).toBe('pause');
+
+    document.body.innerHTML = `
+      <div class="InputManual">
+        <button id="cancel"><svg data-name="CANCEL"></svg></button>
+      </div>
+    `;
+    expect(findAnswerBarAudioControl()).toBeNull();
   });
 });
 
