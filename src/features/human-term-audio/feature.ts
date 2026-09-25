@@ -312,10 +312,11 @@ async function loadExampleOrigins(
 
 function paintCues(): void {
   const afterSubmit = cueAfterReady || readQuizState().isPostAttempt;
-  // Always own the answer bar as play↔pause when we have a clip — never Bunpro’s
-  // X / timer open-player chrome.
+  // Own the answer bar after submit whenever we may have a clip — including when
+  // Bunpro autoplay already mounted the toggle via takeOver before load finished.
+  // A null playUrl must not clear (that wiped the play→pause animation).
   syncAnswerBarReplay({
-    enabled: afterSubmit && shownAnswerPlayUrl !== null,
+    enabled: afterSubmit,
     playUrl: shownAnswerPlayUrl,
   });
   syncAudioSourceIndicator({

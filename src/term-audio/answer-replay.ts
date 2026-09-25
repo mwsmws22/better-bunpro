@@ -2,6 +2,8 @@ import { findAnswerConsole } from '../bunpro/quiz-dom';
 import { element, svgIcon } from '../dom';
 import { injectStyles } from '../styles';
 import { areKeystrokesClaimed, hasModifier } from '../ui/keystrokes';
+import { prefetchAudioHref } from './prefetch-audio';
+import { canonicalAudioUrl, replacementFor } from './store';
 
 /**
  * Answer-bar audio is always our play↔pause toggle after submit. Bunpro’s own
@@ -27,7 +29,10 @@ const PAUSE_PATH = 'M6 19h4V5H6zm8-14v14h4V5z';
 let playUrl: string | null = null;
 let listeningForP = false;
 let interceptingClicks = false;
-let currentAudio: HTMLAudioElement | null = null;
+let currentAudio: HTMLMediaElement | null = null;
+/** True when {@link currentAudio} is a detached element we created (safe to clear src). */
+let currentAudioDetached = false;
+let mediaListeners: { media: HTMLMediaElement; stop: () => void } | null = null;
 
 export interface AnswerBarReplayOptions {
   enabled: boolean;
@@ -50,33 +55,82 @@ export function syncAnswerBarReplay(options: AnswerBarReplayOptions): void {
   ensureBunproClickIntercept();
 }
 
-/** Start (or restart) the clip and show pause — used by fallback autoplay. */
+/**
+ * Start (or restart) the clip and show pause — used by fallback autoplay and
+ * by click/`P` when Bunpro never handed us a media element.
+ * Mounts the toggle if paint has not synced yet so autoplay still flips
+ * play→pause instead of playing with a missing / static control.
+ */
 export function playAnswerBarRecording(url: string): void {
   playUrl = url;
-  const button = findAnswerBarReplayControl();
-  if (button instanceof HTMLButtonElement) {
-    button.dataset.bbPlayUrl = url;
-  }
+  injectStyles();
+  ensureReplayButton(url);
+  ensurePHotkey();
+  ensureBunproClickIntercept();
   startPlayback(url);
 }
 
 /**
- * If our toggle owns this clip, start it there and signal the caller to skip
- * Bunpro’s native `play()` (which opens the X/timer bar).
+ * Answer-bar clip is ours: mount the play↔pause toggle on Bunpro’s media
+ * element. Caller must still invoke native `play()` on that element so the
+ * correct-answer autoplay gesture is preserved (a detached `Audio.play()` is
+ * often blocked, which left the toggle stuck on play).
+ *
+ * Bunpro autoplays in the same tick as post-attempt — often before paint has
+ * synced `playUrl`. Fall back to the prefetch link in that case.
  */
 export function takeOverBunproAnswerPlay(
+  media: HTMLMediaElement,
   src: string,
   replacement: string | null,
 ): boolean {
-  if (!playUrl || !findAnswerBarReplayControl()) {
+  const owned = ownedAnswerBarUrl(src, replacement);
+  if (!owned) {
     return false;
   }
-  const url = replacement ?? src;
-  if (url !== playUrl && replacement !== playUrl && src !== playUrl) {
-    return false;
+  playUrl = owned;
+  injectStyles();
+  ensureReplayButton(owned);
+  ensurePHotkey();
+  ensureBunproClickIntercept();
+  // Prefer the recording we own (JPod blob) when Bunpro still points at TTS.
+  if (canonicalAudioUrl(media.src || src) !== canonicalAudioUrl(owned)) {
+    media.src = owned;
   }
-  playAnswerBarRecording(playUrl);
+  adoptMediaElement(media);
+  setPlaying(true);
   return true;
+}
+
+/** Clip we should play on the answer-bar toggle, if this `play()` is ours. */
+function ownedAnswerBarUrl(src: string, replacement: string | null): string | null {
+  if (playUrl && urlMatchesOwned(src, replacement, playUrl)) {
+    return playUrl;
+  }
+  const prefetch = prefetchAudioHref();
+  const recording = prefetch ? replacementFor(prefetch) : null;
+  // Src may already be the JPod blob (our `src` setter swapped it) before paint
+  // synced playUrl — still treat that as the answer-bar clip.
+  if (recording && urlMatchesOwned(src, replacement, recording)) {
+    return playUrl ?? recording;
+  }
+  if (prefetch && urlMatchesOwned(src, replacement, prefetch)) {
+    return playUrl ?? recording ?? prefetch;
+  }
+  return null;
+}
+
+function urlMatchesOwned(
+  src: string,
+  replacement: string | null,
+  owned: string,
+): boolean {
+  const want = canonicalAudioUrl(owned);
+  return (
+    canonicalAudioUrl(src) === want ||
+    (replacement !== null && canonicalAudioUrl(replacement) === want) ||
+    canonicalAudioUrl(replacement ?? src) === want
+  );
 }
 
 export function clearAnswerBarReplay(): void {
@@ -101,6 +155,10 @@ function ensureReplayButton(url: string): void {
   const existing = findAnswerBarReplayControl();
   if (existing instanceof HTMLButtonElement) {
     existing.dataset.bbPlayUrl = url;
+    // Remount/paint can re-sync while audio is already running — keep pause.
+    if (currentAudio && !currentAudio.paused) {
+      existing.classList.add(PLAYING_CLASS);
+    }
     return;
   }
 
@@ -109,7 +167,11 @@ function ensureReplayButton(url: string): void {
     return;
   }
 
-  slot.replaceChildren(buildReplayButton(url));
+  const button = buildReplayButton(url);
+  if (currentAudio && !currentAudio.paused) {
+    button.classList.add(PLAYING_CLASS);
+  }
+  slot.replaceChildren(button);
 }
 
 function findOrCreateReplaySlot(): HTMLElement | null {
@@ -187,43 +249,82 @@ function togglePlayback(): void {
   startPlayback(playUrl);
 }
 
+function adoptMediaElement(media: HTMLMediaElement): void {
+  detachCurrentMedia({ pause: false, clearSrc: false });
+  currentAudio = media;
+  currentAudioDetached = false;
+  listenToMedia(media);
+}
+
 function startPlayback(url: string): void {
   stopPlayback();
   const audio = new Audio(url);
   currentAudio = audio;
-  audio.addEventListener('ended', () => {
-    if (currentAudio === audio) {
-      currentAudio = null;
-      setPlaying(false);
-    }
-  });
-  audio.addEventListener('pause', () => {
-    if (currentAudio === audio && audio.paused) {
-      setPlaying(false);
-    }
-  });
-  audio.addEventListener('play', () => {
-    if (currentAudio === audio) {
-      setPlaying(true);
-    }
-  });
+  currentAudioDetached = true;
+  listenToMedia(audio);
   setPlaying(true);
   void audio.play().catch(() => {
-    setPlaying(false);
-    currentAudio = null;
+    if (currentAudio === audio) {
+      setPlaying(false);
+      currentAudio = null;
+      currentAudioDetached = false;
+    }
   });
 }
 
+function listenToMedia(media: HTMLMediaElement): void {
+  mediaListeners?.stop();
+  const onEnded = () => {
+    if (currentAudio === media) {
+      currentAudio = null;
+      currentAudioDetached = false;
+      setPlaying(false);
+    }
+  };
+  const onPause = () => {
+    if (currentAudio === media && media.paused) {
+      setPlaying(false);
+    }
+  };
+  const onPlay = () => {
+    if (currentAudio === media) {
+      setPlaying(true);
+    }
+  };
+  media.addEventListener('ended', onEnded);
+  media.addEventListener('pause', onPause);
+  media.addEventListener('play', onPlay);
+  mediaListeners = {
+    media,
+    stop: () => {
+      media.removeEventListener('ended', onEnded);
+      media.removeEventListener('pause', onPause);
+      media.removeEventListener('play', onPlay);
+    },
+  };
+}
+
 function stopPlayback(): void {
-  if (!currentAudio) {
-    setPlaying(false);
-    return;
-  }
+  detachCurrentMedia({ pause: true, clearSrc: true });
+  setPlaying(false);
+}
+
+function detachCurrentMedia(options: { pause: boolean; clearSrc: boolean }): void {
+  mediaListeners?.stop();
+  mediaListeners = null;
   const audio = currentAudio;
   currentAudio = null;
-  audio.pause();
-  audio.src = '';
-  setPlaying(false);
+  const detached = currentAudioDetached;
+  currentAudioDetached = false;
+  if (!audio) {
+    return;
+  }
+  if (options.pause) {
+    audio.pause();
+  }
+  if (options.clearSrc && detached) {
+    audio.src = '';
+  }
 }
 
 function setPlaying(playing: boolean): void {

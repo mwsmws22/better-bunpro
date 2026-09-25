@@ -48,9 +48,10 @@ export function startReplacingAudio(): void {
       this.src = replacement;
     }
 
-    if (takeOverBunproAnswerPlay(this.src, replacement)) {
+    if (takeOverBunproAnswerPlay(this, this.src, replacement)) {
       markTermAudioPlayedViaBunpro();
-      return Promise.resolve();
+      // Keep Bunpro’s gesture-backed play(); CSS hides the X/timer chrome.
+      return natives.play.call(this);
     }
 
     markTermAudioPlayedViaBunpro();
