@@ -29,6 +29,25 @@ npm run typecheck
 npm run build      # writes dist/better-bunpro.user.js
 ```
 
+### Local MCP Firefox (agent debugging)
+
+For Cursor + Firefox DevTools MCP against Bunpro, use the **MCP debug profile** only (never your personal Firefox profile). The launcher is [`scripts/firefox-mcp`](./scripts/firefox-mcp); optionally symlink it:
+
+```shell
+ln -sfn "$(pwd)/scripts/firefox-mcp" ~/bin/firefox-mcp
+```
+
+Typical bring-up:
+
+```shell
+npm run dev                              # Vite on http://127.0.0.1:5173
+./scripts/firefox-mcp                    # fresh window: Bunpro reviews + TM install URL
+```
+
+That opens Tampermonkey’s update dialog for **server:Better Bunpro**. Update/reinstall the stub whenever Vite’s userscript header changed (version bump, `@connect`, etc.) so `GM_xmlhttpRequest` stays wired. Vite still serves latest code; a stale stub only breaks the privilege bridge (dictionary audio falls back to Bunpro TTS).
+
+Cursor project rule: [`.cursor/rules/mcp-session-stub-update.mdc`](./.cursor/rules/mcp-session-stub-update.mdc) (bring-up ritual). Profile safety (never touch the personal Firefox profile) lives in your **user** Cursor rules, not this repo.
+
 ## Greasy Fork releases
 
 Greasy Fork only picks up a new release when **`package.json` `version` changes** and lands on `main` (so the built `@version` in `dist/` changes too). Before pushing behaviour changes to `main`:
