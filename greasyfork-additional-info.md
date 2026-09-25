@@ -28,6 +28,10 @@ This is meant to be used with "Quiz – Undo Action" set to "Clear Last Characte
 
 After a correct answer, press `Tab` to cycle through other example sentences for the same item. Your grade and the sentence your next review starts on stay unchanged. Idea from [Joseph G](https://greasyfork.org/en/users/1613422-joseph-g)'s [Bunpro Sentence Cycle](https://greasyfork.org/en/scripts/584571-bunpro-sentence-cycle).
 
+### Fully hide review SRS
+
+Bunpro’s **Review SRS → Hide** only conceals the level (Beginner / Seasoned / …) before you answer; after a wrong answer, give-up, or correct it still flashes. This keeps that chip hidden for the whole review. Turn on Bunpro’s Hide as well so the level stays gone before submit too.
+
 <hr>
 
 Source: [github.com/mwsmws22/better-bunpro](https://github.com/mwsmws22/better-bunpro)

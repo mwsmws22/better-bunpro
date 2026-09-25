@@ -117,6 +117,13 @@ html.bb-skipping-undo-modal .Toast {
   visibility: hidden !important;
   opacity: 0 !important;
 }
+/**
+ * Bunpro’s Review SRS → Hide still shows this chip after submit. Force it off
+ * for the whole review when Fully hide review SRS is enabled.
+ */
+html.bb-hide-srs li[title="Your SRS progress"] {
+  display: none !important;
+}
 .bb-popover {
   width: max-content;
   max-width: min(20rem, calc(100vw - 1rem));

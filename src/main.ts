@@ -2,6 +2,7 @@ import { registerFeature, startEnabledFeatures } from './features/registry';
 import { addSynonymFeature } from './features/add-synonym/feature';
 import { editOnLeftFeature } from './features/edit-on-left/feature';
 import { exampleSentenceFeature } from './features/example-sentence/feature';
+import { hideSrsFeature } from './features/hide-srs/feature';
 import { humanTermAudioFeature } from './features/human-term-audio/feature';
 import { keepGuessingFeature } from './features/keep-guessing/feature';
 import { sentenceCycleFeature } from './features/sentence-cycle/feature';
@@ -14,6 +15,7 @@ registerFeature(keepGuessingFeature);
 registerFeature(humanTermAudioFeature);
 registerFeature(addSynonymFeature);
 registerFeature(editOnLeftFeature);
+registerFeature(hideSrsFeature);
 
 mountSettingsLaunchers();
 mountHotkeyGuide();
