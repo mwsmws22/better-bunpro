@@ -5,21 +5,23 @@ alwaysApply: true
 
 # MCP session → update server:Better Bunpro stub
 
-When the user asks to open / bring up MCP Firefox, do **only** this (~2 actions):
+When the user asks to open / bring up MCP Firefox, do **only** this:
 
 1. **Vite up** — if `127.0.0.1:5173` is down, start `npm run dev` once.
-2. **Firefox fresh** — from the repo root, run `./scripts/firefox-mcp` once  
-   (same script as `~/bin/firefox-mcp` via symlink).  
-   Opens a clean window with Bunpro **and** the Vite TM install URL (no `window.open`, no leftover `about:blank`).
-3. Prompt the user to **Update** / **Reinstall** **server:Better Bunpro**, then wait for confirmation before review/debug work.
+2. **Firefox fresh** — `./scripts/firefox-mcp` once (symlink: `~/bin/firefox-mcp`).  
+   Opens Bunpro, waits ~2s, then one TM install `--new-tab`.
+3. **Trim to two tabs** — `list_pages` once; close every `about:blank` and any leftover  
+   `__vite-plugin-monkey.install.user.js` tab. Keep Bunpro + one **Userscript re-installation**.  
+   (TM leaves a blank when it intercepts `.user.js`; opening `.user.js` too early causes *two* ask dialogs.)
+4. Prompt the user to **Update** / **Reinstall** **server:Better Bunpro**, then wait for confirmation.
 
 ## Do not
 
-- `window.open` the install URL (that creates an empty `about:blank` tab).
-- Spam `list_pages` / `select_page` / `navigate_page` / reloads.
-- Re-open Bunpro or the install URL repeatedly.
+- `window.open` the install URL.
+- Pass `.user.js` as a Firefox startup URL.
+- Spam navigations/reloads or re-open the install URL.
 - Assume the stub is fine because styles/settings appear.
 
 ## Why
 
-Vite serves latest code; a stale TM stub breaks `GM_xmlhttpRequest`. `scripts/firefox-mcp` starts fresh and opens both tabs at launch.
+Vite serves latest code; a stale TM stub breaks `GM_xmlhttpRequest`. Tab target: **exactly two** — Bunpro reviews + one TM reinstall dialog.

@@ -5,6 +5,9 @@
 #
 # Canonical copy lives in this repo (scripts/firefox-mcp). Symlink to ~/bin:
 #   ln -sfn /home/mws/git/better-bunpro/scripts/firefox-mcp ~/bin/firefox-mcp
+#
+# After launch you should see Bunpro + one leftover about:blank from the TM
+# intercept. The Cursor bring-up rule closes that blank so two tabs remain.
 set -euo pipefail
 
 MCP_PROFILE="/home/mws/.config/mozilla/firefox/0FdAaoTJ.Profile 1"
@@ -18,10 +21,9 @@ Usage: firefox-mcp [url]
 Starts the MCP Firefox profile with Marionette + remote debugging so
 @mozilla/firefox-devtools-mcp can attach (--connect-existing).
 
-Always a fresh session: stops any existing MCP Firefox for this profile,
-clears session restore files, and opens the URL (default Bunpro reviews)
-plus the Vite Tampermonkey install URL as a second tab (no window.open /
-about:blank leftover).
+Fresh session: opens Bunpro, waits for startup to settle, then opens the
+Vite Tampermonkey install URL once via --new-tab. Opening .user.js too
+early (or as a startup URL) makes Tampermonkey spawn duplicate dialogs.
 
 Refuses to run against the MWS profile.
 EOF
@@ -33,7 +35,6 @@ if [[ ! -d "$MCP_PROFILE" ]]; then
   exit 1
 fi
 
-# Hard guard — never touch MWS even if args are wrong.
 for arg in "$@"; do
   if [[ "$arg" == *"$MWS_PROFILE"* ]] || [[ "$arg" == *MWS* && "$arg" == *profile* ]]; then
     echo "Refusing: MWS profile is off-limits." >&2
@@ -43,7 +44,6 @@ done
 
 URL="${1:-https://bunpro.jp/reviews}"
 
-# Stop any existing MCP Firefox so we do not attach to a dirty window.
 if pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1; then
   pkill -f "firefox --profile ${MCP_PROFILE}" || true
   for _ in $(seq 1 50); do
@@ -53,14 +53,12 @@ if pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1; then
   pkill -9 -f "firefox --profile ${MCP_PROFILE}" 2>/dev/null || true
 fi
 
-# Drop restore payloads so startup cannot bring old tabs back.
 rm -f \
   "$MCP_PROFILE/sessionstore.jsonlz4" \
   "$MCP_PROFILE/sessionstore-backups/recovery.jsonlz4" \
   "$MCP_PROFILE/sessionstore-backups/recovery.baklz4" \
   "$MCP_PROFILE/sessionstore-backups/previous.jsonlz4"
 
-# Persist: blank startup, never resume previous session (MCP profile only).
 cat >"$MCP_PROFILE/user.js" <<'EOF'
 // Managed by better-bunpro/scripts/firefox-mcp — MCP debug profile only.
 user_pref("browser.startup.page", 0);
@@ -68,10 +66,23 @@ user_pref("browser.sessionstore.resume_from_crash", false);
 user_pref("browser.sessionstore.restore_on_demand", false);
 EOF
 
-# Two URLs as startup tabs — avoids window.open() leaving about:blank.
-exec /usr/bin/firefox \
+/usr/bin/firefox \
   --profile "$MCP_PROFILE" \
   --marionette \
   --remote-debugging-port=9222 \
-  "$URL" \
-  "$INSTALL_URL"
+  "$URL" &
+firefox_pid=$!
+
+for _ in $(seq 1 100); do
+  if bash -c "echo >/dev/tcp/127.0.0.1/2828" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+
+# Let the first tab finish loading. A --new-tab during early startup makes
+# Tampermonkey open multiple reinstall dialogs.
+sleep 2
+/usr/bin/firefox --profile "$MCP_PROFILE" --new-tab "$INSTALL_URL" || true
+
+wait "$firefox_pid"

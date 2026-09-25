@@ -41,7 +41,8 @@ Typical bring-up:
 
 ```shell
 npm run dev                              # Vite on http://127.0.0.1:5173
-./scripts/firefox-mcp                    # fresh window: Bunpro reviews + TM install URL
+./scripts/firefox-mcp                    # fresh Bunpro, then one TM install tab
+# (bring-up closes the leftover about:blank so two tabs remain)
 ```
 
 That opens Tampermonkey’s update dialog for **server:Better Bunpro**. Update/reinstall the stub whenever Vite’s userscript header changed (version bump, `@connect`, etc.) so `GM_xmlhttpRequest` stays wired. Vite still serves latest code; a stale stub only breaks the privilege bridge (dictionary audio falls back to Bunpro TTS).
