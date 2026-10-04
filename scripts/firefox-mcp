@@ -6,43 +6,61 @@
 # Canonical copy lives in this repo (scripts/firefox-mcp). Symlink to ~/bin:
 #   ln -sfn /home/mws/git/better-bunpro/scripts/firefox-mcp ~/bin/firefox-mcp
 #
-# After launch you should see Bunpro + one leftover about:blank from the TM
-# intercept. The Cursor bring-up rule closes that blank so two tabs remain.
+# Default: Bunpro only. Do NOT open the Tampermonkey install URL on every
+# bring-up — that stacks ask-dialogs. Use --install only when the page reports
+# data-bb-gm-bridge="missing" (or after a userscript header / @grant change).
 set -euo pipefail
 
 MCP_PROFILE="/home/mws/.config/mozilla/firefox/0FdAaoTJ.Profile 1"
 MWS_PROFILE="/home/mws/.config/mozilla/firefox/6awon870.default-release"
 INSTALL_URL="http://127.0.0.1:5173/__vite-plugin-monkey.install.user.js"
 
-if [[ "${1:-}" == "--help" ]]; then
+usage() {
   cat <<'EOF'
-Usage: firefox-mcp [url]
+Usage: firefox-mcp [--install] [url]
 
 Starts the MCP Firefox profile with Marionette + remote debugging so
 @mozilla/firefox-devtools-mcp can attach (--connect-existing).
 
-Fresh session: opens Bunpro, waits for startup to settle, then opens the
-Vite Tampermonkey install URL once via --new-tab. Opening .user.js too
-early (or as a startup URL) makes Tampermonkey spawn duplicate dialogs.
+By default opens Bunpro only. Pass --install to open the Vite Tampermonkey
+stub URL once (after Bunpro has settled). Opening .user.js on every launch
+(or more than once) stacks Tampermonkey reinstall dialogs.
 
 Refuses to run against the MWS profile.
 EOF
-  exit 0
-fi
+}
+
+OPEN_INSTALL=0
+URL="https://bunpro.jp/reviews"
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --install)
+      OPEN_INSTALL=1
+      ;;
+    --*)
+      echo "Unknown option: $arg" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      URL="$arg"
+      ;;
+  esac
+done
 
 if [[ ! -d "$MCP_PROFILE" ]]; then
   echo "MCP profile missing: $MCP_PROFILE" >&2
   exit 1
 fi
 
-for arg in "$@"; do
-  if [[ "$arg" == *"$MWS_PROFILE"* ]] || [[ "$arg" == *MWS* && "$arg" == *profile* ]]; then
-    echo "Refusing: MWS profile is off-limits." >&2
-    exit 1
-  fi
-done
-
-URL="${1:-https://bunpro.jp/reviews}"
+if [[ "$URL" == *"$MWS_PROFILE"* ]] || [[ "$URL" == *MWS* && "$URL" == *profile* ]]; then
+  echo "Refusing: MWS profile is off-limits." >&2
+  exit 1
+fi
 
 if pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1; then
   pkill -f "firefox --profile ${MCP_PROFILE}" || true
@@ -80,9 +98,11 @@ for _ in $(seq 1 100); do
   sleep 0.1
 done
 
-# Let the first tab finish loading. A --new-tab during early startup makes
-# Tampermonkey open multiple reinstall dialogs.
-sleep 2
-/usr/bin/firefox --profile "$MCP_PROFILE" --new-tab "$INSTALL_URL" || true
+if [[ "$OPEN_INSTALL" -eq 1 ]]; then
+  # Let the first tab finish loading. A --new-tab during early startup makes
+  # Tampermonkey open multiple reinstall dialogs.
+  sleep 2
+  /usr/bin/firefox --profile "$MCP_PROFILE" --new-tab "$INSTALL_URL" || true
+fi
 
 wait "$firefox_pid"

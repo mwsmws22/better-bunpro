@@ -42,11 +42,17 @@ Typical bring-up:
 
 ```shell
 npm run dev                              # Vite on http://127.0.0.1:5173
-./scripts/firefox-mcp                    # fresh Bunpro, then one TM install tab
-# (bring-up closes the leftover about:blank so two tabs remain)
+./scripts/firefox-mcp                    # fresh Bunpro only (no TM dialog)
 ```
 
-That opens Tampermonkey’s update dialog for **server:Better Bunpro**. Update/reinstall the stub whenever Vite’s userscript header changed (version bump, `@connect`, etc.) so `GM_xmlhttpRequest` stays wired. Vite still serves latest code; a stale stub only breaks the privilege bridge (dictionary audio falls back to Bunpro TTS).
+Only if the page has `data-bb-gm-bridge="missing"` (stale stub after a version / `@grant` / `@connect` change):
+
+```shell
+./scripts/firefox-mcp --install          # one Tampermonkey update dialog
+# Update/Reinstall server:Better Bunpro once, then reload Bunpro
+```
+
+Do **not** open the install URL repeatedly — Tampermonkey stacks ask-dialogs. Vite still serves latest code; a stale stub only breaks the privilege bridge (dictionary audio falls back to Bunpro TTS).
 
 Cursor project rule: [`.cursor/rules/mcp-session-stub-update.mdc`](./.cursor/rules/mcp-session-stub-update.mdc) (bring-up ritual). Profile safety (never touch the personal Firefox profile) lives in your **user** Cursor rules, not this repo.
 

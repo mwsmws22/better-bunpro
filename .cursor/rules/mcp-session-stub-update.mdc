@@ -1,27 +1,41 @@
 ---
-description: On MCP Firefox sessions, prompt to update the Vite Tampermonkey stub first
+description: On MCP Firefox sessions, verify the Vite Tampermonkey stub without dialog spam
 alwaysApply: true
 ---
 
-# MCP session → update server:Better Bunpro stub
+# MCP session → Vite + Firefox (no install spam)
 
 When the user asks to open / bring up MCP Firefox, do **only** this:
 
 1. **Vite up** — if `127.0.0.1:5173` is down, start `npm run dev` once.
-2. **Firefox fresh** — `./scripts/firefox-mcp` once (symlink: `~/bin/firefox-mcp`).  
-   Opens Bunpro, waits ~2s, then one TM install `--new-tab`.
-3. **Trim to two tabs** — `list_pages` once; close every `about:blank` and any leftover  
-   `__vite-plugin-monkey.install.user.js` tab. Keep Bunpro + one **Userscript re-installation**.  
-   (TM leaves a blank when it intercepts `.user.js`; opening `.user.js` too early causes *two* ask dialogs.)
-4. Prompt the user to **Update** / **Reinstall** **server:Better Bunpro**, then wait for confirmation.
+2. **Firefox fresh** — `./scripts/firefox-mcp` once (**no** `--install`).  
+   Symlink: `~/bin/firefox-mcp`. Opens Bunpro only.
+3. **Close leftover blanks** — `list_pages` once; close every `about:blank`.  
+   Keep the Bunpro reviews tab.
+4. **Probe the bridge** — on Bunpro, read  
+   `document.documentElement.dataset.bbGmBridge`  
+   (`ok` / `missing`, set by human-term-audio). Wait briefly for the script if unset.
+5. **Only if `missing`** (or unset after the script clearly ran and console warns about GM):
+   - Run **one** install tab:  
+     `./scripts/firefox-mcp` is already up — open install with a **single**  
+     `/usr/bin/firefox --profile "<MCP profile>" --new-tab "http://127.0.0.1:5173/__vite-plugin-monkey.install.user.js"`  
+     (or relaunch once with `./scripts/firefox-mcp --install` if Firefox is down).
+   - Trim to Bunpro + **one** Userscript re-installation tab (close blanks / leftover `.user.js`).
+   - Prompt the user to **Update** / **Reinstall** **once**, then wait.
+   - After they confirm: **reload Bunpro once** (reinstall does not rebind the live page).
+   - Re-check `data-bb-gm-bridge`. Stop. Do not open install again.
+
+If the bridge is `ok`, do **not** open the install URL and do **not** ask for a reinstall.
 
 ## Do not
 
-- `window.open` the install URL.
-- Pass `.user.js` as a Firefox startup URL.
-- Spam navigations/reloads or re-open the install URL.
-- Assume the stub is fine because styles/settings appear.
+- Open the install URL on every bring-up.
+- Re-open the install URL after the user already clicked Update/Reinstall.
+- `window.open` the install URL / pass `.user.js` as a Firefox startup URL.
+- Spam navigations or assume styles/settings mean `GM_xmlhttpRequest` works.
 
 ## Why
 
-Vite serves latest code; a stale TM stub breaks `GM_xmlhttpRequest`. Tab target: **exactly two** — Bunpro reviews + one TM reinstall dialog.
+Vite serves latest code; a **stale TM stub** breaks `GM_xmlhttpRequest`. Opening  
+`__vite-plugin-monkey.install.user.js` again stacks Tampermonkey ask-dialogs.  
+Most sessions need **zero** reinstalls — only header/`@grant`/`@connect` changes do.

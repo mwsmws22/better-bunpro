@@ -5,6 +5,11 @@ export default defineConfig({
   build: {
     minify: false,
   },
+  // Prebundling the monkey client leaves `__MONKEY_WINDOW_KEY__` unreplaced, so
+  // `import { GM_xmlhttpRequest } from '$'` binds to the page window (no grants).
+  optimizeDeps: {
+    exclude: ['vite-plugin-monkey'],
+  },
   plugins: [
     monkey({
       entry: 'src/main.ts',

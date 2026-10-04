@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.2
+// @version      0.9.3
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
 // @license      MIT
@@ -1213,6 +1213,13 @@ input.bb-correct-guess {
 		reported.add(topic);
 		console.warn(`[Better Bunpro] ${message}`, error);
 	}
+	function alertOnce(topic, message) {
+		if (reported.has(topic)) return;
+		reported.add(topic);
+		const line = `[Better Bunpro] ${message}`;
+		console.warn(line);
+		alert(line);
+	}
 	async function loadSentences(term) {
 		try {
 			return await fetchStudyQuestions(term);
@@ -1989,6 +1996,64 @@ input.bb-correct-guess {
 		}
 		togglePlayback();
 	}
+	var TIMEOUT_MS = 8e3;
+	var GM_BRIDGE_TOPIC = "gm-xmlhttp-request";
+	var GM_BRIDGE_MESSAGE = "Tampermonkey bridge missing (GM_xmlhttpRequest). Update or Reinstall server:Better Bunpro so dictionary audio works.";
+	function requestText(request) {
+		return send(request, "text");
+	}
+	function requestBlob(request) {
+		return send(request, "blob");
+	}
+	function warnIfGmBridgeMissing() {
+		if (resolveGmXmlHttpRequest()) {
+			document.documentElement.dataset.bbGmBridge = "ok";
+			return;
+		}
+		document.documentElement.dataset.bbGmBridge = "missing";
+		alertOnce(GM_BRIDGE_TOPIC, GM_BRIDGE_MESSAGE);
+	}
+	function resolveGmXmlHttpRequest() {
+		if (typeof _GM_xmlhttpRequest === "function") return _GM_xmlhttpRequest;
+		if (typeof _GM?.xmlHttpRequest === "function") return _GM.xmlHttpRequest;
+		return gmXmlFromMonkeyDocument();
+	}
+	function gmXmlFromMonkeyDocument() {
+		for (const key of Object.getOwnPropertyNames(document)) {
+			if (!key.startsWith("__monkeyWindow-")) continue;
+			const holder = document[key];
+			if (typeof holder?.GM_xmlhttpRequest === "function") return holder.GM_xmlhttpRequest;
+			if (typeof holder?.GM?.xmlHttpRequest === "function") return holder.GM.xmlHttpRequest;
+		}
+	}
+	function gmXmlHttpRequest() {
+		const request = resolveGmXmlHttpRequest();
+		if (request) return request;
+		warnIfGmBridgeMissing();
+		throw new Error("GM_xmlhttpRequest is not available");
+	}
+	function send({ url, method = "GET", headers, body }, responseType) {
+		return new Promise((resolve, reject) => {
+			gmXmlHttpRequest()({
+				url,
+				method,
+				headers,
+				data: body,
+				responseType,
+				anonymous: true,
+				timeout: TIMEOUT_MS,
+				onload: (response) => {
+					if (response.status < 200 || response.status >= 300) {
+						reject(new Error(`${url} responded ${response.status}`));
+						return;
+					}
+					resolve(response.response);
+				},
+				onerror: () => reject(new Error(`${url} could not be reached`)),
+				ontimeout: () => reject(new Error(`${url} took longer than ${TIMEOUT_MS}ms`))
+			});
+		});
+	}
 	function grammarSlugFromPath(pathname = location.pathname) {
 		const match = pathname.match(/^\/grammar_points\/([^/]+)\/?$/);
 		if (!match) return null;
@@ -2065,41 +2130,6 @@ input.bb-correct-guess {
 	}
 	function removeLegacyChip() {
 		document.getElementById(LEGACY_CHIP_ID)?.remove();
-	}
-	var TIMEOUT_MS = 8e3;
-	function requestText(request) {
-		return send(request, "text");
-	}
-	function requestBlob(request) {
-		return send(request, "blob");
-	}
-	function gmXmlHttpRequest() {
-		if (typeof _GM_xmlhttpRequest === "function") return _GM_xmlhttpRequest;
-		const fromGm = _GM?.xmlHttpRequest;
-		if (typeof fromGm === "function") return fromGm;
-		throw new Error("GM_xmlhttpRequest is not available");
-	}
-	function send({ url, method = "GET", headers, body }, responseType) {
-		return new Promise((resolve, reject) => {
-			gmXmlHttpRequest()({
-				url,
-				method,
-				headers,
-				data: body,
-				responseType,
-				anonymous: true,
-				timeout: TIMEOUT_MS,
-				onload: (response) => {
-					if (response.status < 200 || response.status >= 300) {
-						reject(new Error(`${url} responded ${response.status}`));
-						return;
-					}
-					resolve(response.response);
-				},
-				onerror: () => reject(new Error(`${url} could not be reached`)),
-				ontimeout: () => reject(new Error(`${url} took longer than ${TIMEOUT_MS}ms`))
-			});
-		});
 	}
 	function parsePage(html) {
 		return new DOMParser().parseFromString(html, "text/html");
@@ -2421,6 +2451,7 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
+			warnIfGmBridgeMissing();
 			startReplacingAudio();
 			setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
 			setTermAutoplayPlayer(playAnswerBarRecording);
@@ -2734,7 +2765,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.9.2";
+	var version = "0.9.3";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;

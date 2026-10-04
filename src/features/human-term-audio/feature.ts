@@ -21,6 +21,7 @@ import {
   exampleOnScreenHasAudio,
   exampleOriginsFromSentences,
 } from '../../term-audio/example-audio';
+import { warnIfGmBridgeMissing } from '../../term-audio/cross-origin';
 import { grammarSlugFromPath, reviewableFromGrammarSlug } from '../../term-audio/grammar-page';
 import { clearAudioSourceIndicator, syncAudioSourceIndicator } from '../../term-audio/indicator';
 import { loadTermAudio } from '../../term-audio/load';
@@ -53,6 +54,7 @@ export const humanTermAudioFeature: Feature = {
 
   start() {
     injectStyles();
+    warnIfGmBridgeMissing();
     startReplacingAudio();
     setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
     setTermAutoplayPlayer(playAnswerBarRecording);

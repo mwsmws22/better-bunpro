@@ -12,3 +12,14 @@ export function warnOnce(topic: string, message: string, error: unknown): void {
   reported.add(topic);
   console.warn(`[Better Bunpro] ${message}`, error);
 }
+
+/** Same once-per-topic gate as warnOnce, but also pops a blocking alert. */
+export function alertOnce(topic: string, message: string): void {
+  if (reported.has(topic)) {
+    return;
+  }
+  reported.add(topic);
+  const line = `[Better Bunpro] ${message}`;
+  console.warn(line);
+  alert(line);
+}
