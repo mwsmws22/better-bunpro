@@ -1,7 +1,9 @@
 import { findClozeSentence, findNativeSentenceCard, findQuizArticle } from '../bunpro/quiz-dom';
 import type { StudyQuestion } from '../bunpro/api';
+import { readQuizState } from '../bunpro/quiz-state';
 import { shownSentence } from '../quiz-sentence/slot';
 import { bunproClipOrigin, type AudioOrigin } from './origin';
+import { prefetchAudioHref } from './prefetch-audio';
 
 /**
  * Sentence-example speakers use this title. Term controls do not:
@@ -108,9 +110,29 @@ function prefetchBackedSentenceAudio(article: HTMLElement | null): boolean {
 }
 
 /**
+ * Prefetch URL safe to drive the answer-bar toggle for *this* card.
+ * Bunpro often leaves the previous review’s `link#prefetch-audio` in the DOM;
+ * never hand that leftover to play/autoplay.
+ */
+export function answerBarPrefetchHref(): string | null {
+  const href = prefetchAudioHref();
+  if (!href) {
+    return null;
+  }
+  if (href.includes('/audio/vocab/pronunciation/')) {
+    return pronunciationPrefetchMatchesCard(href) ? href : null;
+  }
+  if (isSentencePrefetch(href)) {
+    return prefetchMatchesOnScreenSentence(findQuizArticle()) ? href : null;
+  }
+  return null;
+}
+
+/**
  * Cloze + current `/tts/` prefetch means sentence audio, except when Bunpro’s
  * only sentence control is “Audio not available…” (stale prefetch must not block
  * term JPod). A leftover hidden “not available” must not win over a real Play.
+ * Without a Play control, the prefetch stem must match the on-screen sentence.
  */
 function clozeHasPrefetchedSentenceAudio(article: HTMLElement): boolean {
   if (!article.querySelector('.bp-quiz-question')) {
@@ -122,11 +144,11 @@ function clozeHasPrefetchedSentenceAudio(article: HTMLElement): boolean {
   if (article.querySelector('button[title="Audio not available for this item yet"]')) {
     return false;
   }
-  return true;
+  return prefetchMatchesOnScreenSentence(article);
 }
 
 /**
- * When the full sentence is on screen (no cloze blank gap), Bunpro’s `/tts/`
+ * When the full sentence is on screen (no cloze blank gap), Bunpro’s sentence
  * prefetch filename is the bare sentence while the prompt may mix in furigana.
  * Treat as current when every character of the prefetch stem appears in order.
  */
@@ -142,12 +164,13 @@ function prefetchMatchesOnScreenSentence(article: HTMLElement | null): boolean {
   return isCharacterSubsequence(stem, onScreen);
 }
 
+function isSentencePrefetch(href: string): boolean {
+  return href.includes('/audio/vocab/tts/') || href.includes('/audio/grammar/');
+}
+
 function prefetchSentenceStem(): string | null {
-  const href =
-    document.querySelector<HTMLLinkElement>('link#prefetch-audio')?.href ??
-    document.querySelector<HTMLLinkElement>('link[rel="prefetch"][as="audio"]')?.href ??
-    null;
-  if (!href || !href.includes('/audio/vocab/tts/')) {
+  const href = prefetchAudioHref();
+  if (!href || !isSentencePrefetch(href)) {
     return null;
   }
   let file: string;
@@ -156,8 +179,27 @@ function prefetchSentenceStem(): string | null {
   } catch {
     return null;
   }
-  const stem = file.replace(/-(male|female)\.mp3$/i, '');
+  const stem = file.replace(/-(male|female)\.mp3$/i, '').replace(/\.mp3$/i, '');
   return stem.length > 0 ? stem : null;
+}
+
+function pronunciationPrefetchMatchesCard(href: string): boolean {
+  let file: string;
+  try {
+    file = decodeURIComponent(href.slice(href.lastIndexOf('/') + 1));
+  } catch {
+    return false;
+  }
+  const stem = file.replace(/-(male|female)\.mp3$/i, '').replace(/\.mp3$/i, '');
+  if (!stem) {
+    return false;
+  }
+  const answers = readQuizState().answers;
+  if (answers.some((answer) => answer.includes(stem) || stem.includes(answer))) {
+    return true;
+  }
+  const text = findQuizArticle()?.textContent ?? '';
+  return text.includes(stem);
 }
 
 function onScreenSentenceText(article: HTMLElement | null): string {
@@ -197,10 +239,7 @@ function quizHasVisibleSentencePlay(article: HTMLElement): boolean {
  * Never trust this alone — see {@link exampleOnScreenHasAudio}.
  */
 function prefetchIsExampleSentenceAudio(): boolean {
-  const href =
-    document.querySelector<HTMLLinkElement>('link#prefetch-audio')?.href ??
-    document.querySelector<HTMLLinkElement>('link[rel="prefetch"][as="audio"]')?.href ??
-    null;
+  const href = prefetchAudioHref();
   if (!href) {
     return false;
   }

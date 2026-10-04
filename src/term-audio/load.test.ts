@@ -9,9 +9,10 @@ vi.mock('./replacements', () => ({
 
 vi.mock('./example-audio', () => ({
   exampleOnScreenHasAudio: vi.fn(() => false),
+  answerBarPrefetchHref: vi.fn(() => null),
 }));
 
-import { exampleOnScreenHasAudio } from './example-audio';
+import { answerBarPrefetchHref, exampleOnScreenHasAudio } from './example-audio';
 import { findReplacement } from './replacements';
 import { loadTermAudio, type TermAudioOrigins } from './load';
 
@@ -30,6 +31,7 @@ const JPOD_HIT = { origin: 'jpod101' as const, url: 'blob:jpod' };
 afterEach(() => {
   vi.restoreAllMocks();
   vi.mocked(exampleOnScreenHasAudio).mockReturnValue(false);
+  vi.mocked(answerBarPrefetchHref).mockReturnValue(null);
 });
 
 function collectOrigins(

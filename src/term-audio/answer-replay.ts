@@ -2,6 +2,7 @@ import { findAnswerConsole } from '../bunpro/quiz-dom';
 import { element, svgIcon } from '../dom';
 import { injectStyles } from '../styles';
 import { areKeystrokesClaimed, hasModifier } from '../ui/keystrokes';
+import { answerBarPrefetchHref } from './example-audio';
 import { prefetchAudioHref } from './prefetch-audio';
 import { canonicalAudioUrl, replacementFor } from './store';
 
@@ -107,7 +108,7 @@ function ownedAnswerBarUrl(src: string, replacement: string | null): string | nu
   if (playUrl && urlMatchesOwned(src, replacement, playUrl)) {
     return playUrl;
   }
-  const prefetch = prefetchAudioHref();
+  const prefetch = answerBarPrefetchHref();
   const recording = prefetch ? replacementFor(prefetch) : null;
   // Src may already be the JPod blob (our `src` setter swapped it) before paint
   // synced playUrl — still treat that as the answer-bar clip.
@@ -116,6 +117,16 @@ function ownedAnswerBarUrl(src: string, replacement: string | null): string | nu
   }
   if (prefetch && urlMatchesOwned(src, replacement, prefetch)) {
     return playUrl ?? recording ?? prefetch;
+  }
+  // Bunpro autoplayed a leftover prefetch we refuse — prefer our synced URL.
+  const rawPrefetch = prefetchAudioHref();
+  if (
+    playUrl &&
+    rawPrefetch &&
+    urlMatchesOwned(src, replacement, rawPrefetch) &&
+    !prefetch
+  ) {
+    return playUrl;
   }
   return null;
 }

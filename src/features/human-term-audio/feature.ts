@@ -16,13 +16,16 @@ import {
   playAnswerBarRecording,
   syncAnswerBarReplay,
 } from '../../term-audio/answer-replay';
-import { exampleOnScreenHasAudio, exampleOriginsFromSentences } from '../../term-audio/example-audio';
+import {
+  answerBarPrefetchHref,
+  exampleOnScreenHasAudio,
+  exampleOriginsFromSentences,
+} from '../../term-audio/example-audio';
 import { grammarSlugFromPath, reviewableFromGrammarSlug } from '../../term-audio/grammar-page';
 import { clearAudioSourceIndicator, syncAudioSourceIndicator } from '../../term-audio/indicator';
 import { loadTermAudio } from '../../term-audio/load';
 import type { AudioOrigin } from '../../term-audio/origin';
 import { bunproClipOrigin, isRealAudioOrigin } from '../../term-audio/origin';
-import { prefetchAudioHref } from '../../term-audio/prefetch-audio';
 import { startReplacingAudio, stopReplacingAudio } from '../../term-audio/playback';
 import { forgetReplacements } from '../../term-audio/replacements';
 import { reviewableFromVocabSlug, vocabSlugFromPath } from '../../term-audio/vocab-page';
@@ -72,7 +75,7 @@ export const humanTermAudioFeature: Feature = {
           exampleOnScreenHasAudio()
         ) {
           shownAnswerOrigin = 'bunpro-tts';
-          const prefetch = prefetchAudioHref();
+          const prefetch = answerBarPrefetchHref();
           if (prefetch) {
             shownAnswerPlayUrl = prefetch;
           }
@@ -171,7 +174,7 @@ async function refreshReview(state: QuizState): Promise<void> {
     shownDetailsOrigin = origins.details;
     shownAnswerPlayUrl = origins.answerPlayUrl;
     if (keepBunproAnswer) {
-      const prefetch = prefetchAudioHref();
+      const prefetch = answerBarPrefetchHref();
       if (prefetch) {
         shownAnswerPlayUrl = prefetch;
       }
@@ -332,7 +335,7 @@ function adoptBunproAnswerClip(review: string): void {
   if (!readQuizState().isPostAttempt) {
     return;
   }
-  const url = prefetchAudioHref();
+  const url = answerBarPrefetchHref();
   if (!url) {
     return;
   }

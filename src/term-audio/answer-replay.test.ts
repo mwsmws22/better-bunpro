@@ -190,6 +190,11 @@ describe('takeOverBunproAnswerPlay', () => {
   it('takes over Bunpro correct-answer autoplay via prefetch before paint syncs', async () => {
     const { takeOverBunproAnswerPlay } = await import('./answer-replay');
     document.body.innerHTML = `
+      <div id="js-quiz">
+        <article>
+          <div class="bp-quiz-question">This is a grammar sentence.</div>
+        </article>
+      </div>
       <link id="prefetch-audio" rel="prefetch" as="audio"
         href="https://cdn.example/audio/grammar/sentence.mp3" />
       <div class="InputManual">
@@ -216,6 +221,9 @@ describe('takeOverBunproAnswerPlay', () => {
   it('takes over Bunpro prefetch TTS autoplay when the answer bar is already on JPod', async () => {
     const { syncAnswerBarReplay, takeOverBunproAnswerPlay } = await import('./answer-replay');
     document.body.innerHTML = `
+      <div id="js-quiz">
+        <article>習わしの話</article>
+      </div>
       <link id="prefetch-audio" rel="prefetch" as="audio"
         href="https://cdn.example/audio/vocab/pronunciation/習わし-male.mp3" />
       <div class="InputManual">
@@ -249,6 +257,9 @@ describe('takeOverBunproAnswerPlay', () => {
     const { takeOverBunproAnswerPlay } = await import('./answer-replay');
     const tts = 'https://cdn.example/audio/vocab/pronunciation/習わし-male.mp3';
     document.body.innerHTML = `
+      <div id="js-quiz">
+        <article>習わしの話</article>
+      </div>
       <link id="prefetch-audio" rel="prefetch" as="audio" href="${tts}" />
       <div class="InputManual">
         <div class="p-6"><div class="h-18 w-18"></div></div>

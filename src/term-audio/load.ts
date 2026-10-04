@@ -2,10 +2,9 @@ import type { Reviewable } from '../bunpro/api';
 import { fetchReviewable } from '../bunpro/api';
 import type { ReviewableRef } from '../bunpro/quiz-state';
 import { warnOnce } from '../report';
-import { exampleOnScreenHasAudio } from './example-audio';
+import { answerBarPrefetchHref, exampleOnScreenHasAudio } from './example-audio';
 import type { AudioOrigin } from './origin';
 import { bunproOrigin } from './origin';
-import { prefetchAudioHref } from './prefetch-audio';
 import { findReplacement } from './replacements';
 import { synthesisedTermAudio } from './term';
 
@@ -66,7 +65,7 @@ export async function loadTermAudio(
     const leaveAnswerOnBunpro =
       !options.ignoreExampleAudio && exampleOnScreenHasAudio();
 
-    const bunproPlayUrl = prefetchAudioHref() ?? audio.ttsUrls[0] ?? null;
+    const bunproPlayUrl = answerBarPrefetchHref() ?? audio.ttsUrls[0] ?? null;
     onOrigins({
       answer: leaveAnswerOnBunpro ? bunpro : (hit?.origin ?? bunpro),
       details: hit?.origin ?? bunpro,

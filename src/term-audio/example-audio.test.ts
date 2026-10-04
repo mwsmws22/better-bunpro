@@ -2,7 +2,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { showSentence, clearSentence } from '../quiz-sentence/slot';
 import type { StudyQuestion } from '../bunpro/api';
-import { exampleOnScreenHasAudio, exampleOriginsFromSentences } from './example-audio';
+import {
+  answerBarPrefetchHref,
+  exampleOnScreenHasAudio,
+  exampleOriginsFromSentences,
+} from './example-audio';
 
 const WITH_AUDIO: StudyQuestion = {
   id: 1,
@@ -157,6 +161,24 @@ describe('exampleOnScreenHasAudio', () => {
     expect(exampleOnScreenHasAudio()).toBe(false);
   });
 
+  it('ignores leftover /tts/ prefetch on cloze when the stem does not match (no Play control)', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">爪楊枝で必死に歯を抉っている時に…</div>
+            </div>
+          </section>
+          <footer></footer>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('京都市は全国に先駆けて省エネ活動に取り組んでいます。')}-male.mp3" />
+    `;
+    expect(exampleOnScreenHasAudio()).toBe(false);
+  });
+
   it('is true when cloze sentence TTS prefetch matches the on-screen sentence (play may be hidden)', () => {
     document.body.innerHTML = `
       <div id="js-quiz">
@@ -257,6 +279,60 @@ describe('exampleOnScreenHasAudio', () => {
       </div>
     `;
     expect(exampleOnScreenHasAudio()).toBe(false);
+  });
+});
+
+describe('answerBarPrefetchHref', () => {
+  it('returns null when prefetch is a leftover grammar clip from the previous review', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">爪楊枝で必死に歯を抉っている時に…</div>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/grammar/n1/${encodeURIComponent('京都市は全国に先駆けて省エネ活動に取り組んでいます。')}.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toBeNull();
+  });
+
+  it('returns the prefetch when the sentence stem matches the on-screen cloze', () => {
+    const sentence = '三点差を覆して勝利するとは…';
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">${sentence}</div>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent(sentence)}-male.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toContain(encodeURIComponent(sentence));
+  });
+
+  it('returns null for leftover vocab TTS that does not match the cloze sentence', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">爪楊枝で必死に歯を抉っている時に…</div>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('レッスンを怠けていてばかりだったので')}-male.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toBeNull();
   });
 });
 
