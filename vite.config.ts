@@ -19,7 +19,7 @@ export default defineConfig({
         author: 'mwsmws22',
         license: 'MIT',
         description:
-          'Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.',
+          'Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.',
         // Bunpro routes client-side, so /reviews is often reached without a page
         // load. Every feature activates off the elements it needs being present.
         match: ['https://bunpro.jp/*'],

@@ -114,6 +114,14 @@ button.bb-audio-real {
 button.bb-audio-tts {
   color: rgb(var(--c-primary-fg) / 1) !important;
 }
+/**
+ * Examples list speakers are Bunpro-accent (blue) in the DOM. Treat unpainted
+ * Play controls as TTS white immediately so they do not flash blue while we
+ * resolve classic / Gemini / ElevenLabs. \`bb-audio-real\` still wins for recordings.
+ */
+.bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
+  color: rgb(var(--c-primary-fg) / 1) !important;
+}
 /** Injected answer-bar toggle: swap play↔pause without remounting. */
 #bb-answer-bar-replay .bb-replay-pause {
   display: none;

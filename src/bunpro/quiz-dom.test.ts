@@ -50,6 +50,18 @@ describe('findExamplesListPlayControls', () => {
       'ex-b',
     ]);
   });
+
+  it('still finds Examples speakers after the source tooltip replaces title', () => {
+    document.body.innerHTML = `
+      <article class="bp-reviewable-root">
+        <li id="study-question-10">
+          <button id="ex-painted" title="Bunpro Gemini TTS" data-bb-audio-title="Play audio"></button>
+        </li>
+      </article>
+    `;
+
+    expect(findExamplesListPlayControls().map((el) => el.id)).toEqual(['ex-painted']);
+  });
 });
 
 describe('findTermAudioControl', () => {

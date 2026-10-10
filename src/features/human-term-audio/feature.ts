@@ -70,18 +70,18 @@ export const humanTermAudioFeature: Feature = {
         (shownAnswerOrigin !== null || shownDetailsOrigin !== null)
       ) {
         // Sentence audio became detectable after the first load (Play control
-        // appeared). Flip the answer cue off JPod without re-fetching.
-        if (
-          shownAnswerOrigin !== null &&
-          isRealAudioOrigin(shownAnswerOrigin) &&
-          exampleOnScreenHasAudio()
-        ) {
-          shownAnswerOrigin = 'bunpro-tts';
+        // appeared). Flip the answer cue off JPod / onto the sentence engine
+        // (classic / Gemini / ElevenLabs) without re-fetching.
+        if (shownAnswerOrigin !== null && exampleOnScreenHasAudio()) {
           const prefetch = answerBarPrefetchHref();
           if (prefetch) {
             shownAnswerPlayUrl = prefetch;
+            shownAnswerOrigin = bunproClipOrigin(prefetch) ?? 'bunpro-tts';
+            cancelScheduledTermAutoplay();
+          } else if (isRealAudioOrigin(shownAnswerOrigin)) {
+            shownAnswerOrigin = 'bunpro-tts';
+            cancelScheduledTermAutoplay();
           }
-          cancelScheduledTermAutoplay();
         }
         paintCues();
         return;
@@ -179,6 +179,7 @@ async function refreshReview(state: QuizState): Promise<void> {
       const prefetch = answerBarPrefetchHref();
       if (prefetch) {
         shownAnswerPlayUrl = prefetch;
+        shownAnswerOrigin = bunproClipOrigin(prefetch) ?? shownAnswerOrigin;
       }
     }
     paintCues();
@@ -235,6 +236,8 @@ async function refreshVocabPage(slug: string): Promise<void> {
   } else if (shownDetailsOrigin === null) {
     return;
   }
+  // Whiten Examples speakers before the study-question fetch returns.
+  paintCues();
 
   const term = await reviewableFromVocabSlug(slug);
   if (!term || vocabSlugFromPath() !== slug) {
@@ -283,6 +286,7 @@ async function refreshGrammarPage(slug: string): Promise<void> {
   } else if (shownExampleOrigins === null) {
     return;
   }
+  paintCues();
 
   const term = await reviewableFromGrammarSlug(slug);
   if (!term || grammarSlugFromPath() !== slug) {

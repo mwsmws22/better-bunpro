@@ -6,7 +6,7 @@ Built with [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey). 
 
 ## Features
 
-- Example sentences for A1+ vocab after a correct answer (when Bunpro shows none)
+- Example sentences for A5 vocab after a correct answer (when Bunpro shows none)
 - Tab to cycle example sentences
 - Don't spoil the answer on a wrong typed guess
 - Add a missed vocab translation as a synonym (button or **S**)

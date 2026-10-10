@@ -4,7 +4,7 @@ import type { ReviewableRef } from '../bunpro/quiz-state';
 import { warnOnce } from '../report';
 import { answerBarPrefetchHref, exampleOnScreenHasAudio } from './example-audio';
 import type { AudioOrigin } from './origin';
-import { bunproOrigin } from './origin';
+import { bunproClipOrigin, bunproOrigin, isBunproSynthesisedAudioUrl } from './origin';
 import { findReplacement } from './replacements';
 import { synthesisedTermAudio } from './term';
 
@@ -66,8 +66,9 @@ export async function loadTermAudio(
       !options.ignoreExampleAudio && exampleOnScreenHasAudio();
 
     const bunproPlayUrl = answerBarPrefetchHref() ?? audio.ttsUrls[0] ?? null;
+    const answerBunpro = originForBunproPlayUrl(bunproPlayUrl, bunpro);
     onOrigins({
-      answer: leaveAnswerOnBunpro ? bunpro : (hit?.origin ?? bunpro),
+      answer: leaveAnswerOnBunpro ? answerBunpro : (hit?.origin ?? answerBunpro),
       details: hit?.origin ?? bunpro,
       // Always give the answer-bar toggle a URL — JPod when we own term audio,
       // otherwise Bunpro’s prefetch / synthesised clip (no open-player chrome).
@@ -76,6 +77,14 @@ export async function loadTermAudio(
   } catch (error) {
     warnOnce('term-audio', 'Could not replace synthesised term audio:', error);
   }
+}
+
+/** Prefer classic / Gemini / ElevenLabs from the clip URL; else the API TTS flag. */
+function originForBunproPlayUrl(url: string | null, fallback: AudioOrigin): AudioOrigin {
+  if (url && isBunproSynthesisedAudioUrl(url)) {
+    return bunproClipOrigin(url) ?? fallback;
+  }
+  return fallback;
 }
 
 function hasTermAudio(item: Reviewable): boolean {

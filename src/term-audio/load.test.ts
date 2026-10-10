@@ -86,4 +86,21 @@ describe('loadTermAudio', () => {
       { answer: 'jpod101', details: 'jpod101', answerPlayUrl: 'blob:jpod' },
     ]);
   });
+
+  it('labels the answer bar as ElevenLabs when the sentence prefetch is that engine', async () => {
+    const eleven =
+      'https://cdn.example/audio/vocab/elevenlabs/1/study_questions/文-female-1.mp3';
+    vi.spyOn(api, 'fetchReviewable').mockResolvedValue(TTS_ITEM);
+    vi.mocked(exampleOnScreenHasAudio).mockReturnValue(true);
+    vi.mocked(answerBarPrefetchHref).mockReturnValue(eleven);
+    vi.mocked(findReplacement).mockResolvedValue(JPOD_HIT);
+
+    const origins = await collectOrigins((onOrigins) => loadTermAudio(TERM, onOrigins));
+
+    expect(origins.at(-1)).toEqual({
+      answer: 'bunpro-tts-elevenlabs',
+      details: 'jpod101',
+      answerPlayUrl: eleven,
+    });
+  });
 });

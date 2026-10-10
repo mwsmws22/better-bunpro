@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.3
+// @version      0.9.4
 // @author       mwsmws22
-// @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
+// @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
 // @match        https://bunpro.jp/*
 // @connect      assets.languagepod101.com

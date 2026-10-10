@@ -318,6 +318,46 @@ describe('answerBarPrefetchHref', () => {
     expect(answerBarPrefetchHref()).toContain(encodeURIComponent(sentence));
   });
 
+  it('matches ElevenLabs filenames that append a timestamp after male/female', () => {
+    const sentence = '理ことわりをわきまえていない妹がする事はいつも筋が通っていない';
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">${sentence}</div>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/elevenlabs/13398/study_questions/${encodeURIComponent(sentence)}-female-1791526301735.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toContain('elevenlabs');
+    expect(answerBarPrefetchHref()).toContain(encodeURIComponent(sentence));
+  });
+
+  it('accepts ElevenLabs cloze prefetch when the blank omits the answer from the stem', () => {
+    const stem = '理ことわりをわきまえていない妹がする事はいつも筋が通っていない';
+    // On-screen cloze has dropped 理 (the answer) from the prompt.
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="bp-modal-container"></article>
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">をわきまえていない妹いもうとがする事ことはいつも筋すじが通とおっていない。</div>
+              <button title="Play audio"></button>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/elevenlabs/13398/study_questions/${encodeURIComponent(stem)}-female-1791526301735.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toContain('elevenlabs');
+  });
+
   it('returns null for leftover vocab TTS that does not match the cloze sentence', () => {
     document.body.innerHTML = `
       <div id="js-quiz">
@@ -355,6 +395,18 @@ describe('exampleOriginsFromSentences', () => {
         male_audio_url: null,
         female_audio_url: 'https://cdn.example/audio/grammar/n1/すら.mp3',
       },
+      {
+        ...WITH_AUDIO,
+        id: 13,
+        male_audio_url:
+          'https://cdn.example/audio/vocab/gemini/7676/study_questions/フユニナルトポンポン-male.mp3',
+      },
+      {
+        ...WITH_AUDIO,
+        id: 14,
+        male_audio_url:
+          'https://cdn.example/audio/vocab/elevenlabs/11660/study_questions/積乱雲が巻き起こっています-male-1.mp3',
+      },
       WITHOUT_AUDIO,
     ]);
 
@@ -362,6 +414,8 @@ describe('exampleOriginsFromSentences', () => {
       [10, 'bunpro-tts'],
       [11, 'bunpro-rec'],
       [12, 'bunpro-rec'],
+      [13, 'bunpro-tts-gemini'],
+      [14, 'bunpro-tts-elevenlabs'],
     ]);
   });
 });

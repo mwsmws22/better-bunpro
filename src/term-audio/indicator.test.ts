@@ -87,7 +87,7 @@ describe('syncAudioSourceIndicator', () => {
 
     const answer = document.querySelector('.InputManual button');
     const details = document.querySelector('.DetailsPitchAccent button');
-    expect(answer?.getAttribute('title')).toBe('Bunpro TTS');
+    expect(answer?.getAttribute('title')).toBe('Bunpro Classic TTS');
     expect(answer?.classList.contains('bb-audio-tts')).toBe(true);
     expect(answer?.classList.contains('bb-audio-real')).toBe(false);
     expect(details?.getAttribute('title')).toBe('JPod101 Recording');
@@ -123,9 +123,27 @@ describe('syncAudioSourceIndicator', () => {
     syncAudioSourceIndicator({ detailsOrigin: 'bunpro-tts', afterSubmit: true });
 
     const play = document.querySelector('.DetailsPitchAccent button');
-    expect(play?.getAttribute('title')).toBe('Bunpro TTS');
+    expect(play?.getAttribute('title')).toBe('Bunpro Classic TTS');
     expect(play?.classList.contains('bb-audio-tts')).toBe(true);
     expect(play?.classList.contains('bb-audio-real')).toBe(false);
+  });
+
+  it('paints Examples speakers as TTS immediately while origins are still loading', () => {
+    document.body.innerHTML = `
+      <article class="bp-reviewable-root">
+        <li id="study-question-10">
+          <button id="pending" class="text-primary-accent" title="Play audio"></button>
+        </li>
+      </article>
+    `;
+
+    syncAudioSourceIndicator({ afterSubmit: true, exampleOrigins: null });
+
+    const pending = document.getElementById('pending');
+    expect(pending?.classList.contains('bb-audio-tts')).toBe(true);
+    expect(pending?.classList.contains('bb-audio-real')).toBe(false);
+    // Keep Bunpro’s title until the real origin (classic / Gemini / …) is known.
+    expect(pending?.getAttribute('title')).toBe('Play audio');
   });
 
   it('tints Info Examples speakers from each study-question origin', () => {
@@ -137,6 +155,12 @@ describe('syncAudioSourceIndicator', () => {
         <li id="study-question-11">
           <button id="rec" class="text-primary-accent" title="Play audio"></button>
         </li>
+        <li id="study-question-12">
+          <button id="gemini" class="text-primary-accent" title="Play audio"></button>
+        </li>
+        <li id="study-question-13">
+          <button id="eleven" class="text-primary-accent" title="Play audio"></button>
+        </li>
       </article>
     `;
 
@@ -145,17 +169,27 @@ describe('syncAudioSourceIndicator', () => {
       exampleOrigins: new Map([
         [10, 'bunpro-tts'],
         [11, 'bunpro-rec'],
+        [12, 'bunpro-tts-gemini'],
+        [13, 'bunpro-tts-elevenlabs'],
       ]),
     });
 
     const tts = document.getElementById('tts');
     const rec = document.getElementById('rec');
-    expect(tts?.getAttribute('title')).toBe('Bunpro TTS');
+    const gemini = document.getElementById('gemini');
+    const eleven = document.getElementById('eleven');
+    expect(tts?.getAttribute('title')).toBe('Bunpro Classic TTS');
     expect(tts?.classList.contains('bb-audio-tts')).toBe(true);
     expect(tts?.classList.contains('bb-audio-real')).toBe(false);
     expect(rec?.getAttribute('title')).toBe('Bunpro Recording');
     expect(rec?.classList.contains('bb-audio-real')).toBe(true);
     expect(rec?.classList.contains('bb-audio-tts')).toBe(false);
+    expect(gemini?.getAttribute('title')).toBe('Bunpro Gemini TTS');
+    expect(gemini?.classList.contains('bb-audio-tts')).toBe(true);
+    expect(gemini?.classList.contains('bb-audio-real')).toBe(false);
+    expect(eleven?.getAttribute('title')).toBe('Bunpro ElevenLabs TTS');
+    expect(eleven?.classList.contains('bb-audio-tts')).toBe(true);
+    expect(eleven?.classList.contains('bb-audio-real')).toBe(false);
   });
 
   it('does not keep mutating when a body observer re-syncs after its own write', async () => {

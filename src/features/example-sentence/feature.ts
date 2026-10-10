@@ -23,10 +23,10 @@ let stopWatchingQuiz: (() => void) | null = null;
 
 export const exampleSentenceFeature: Feature = {
   id: 'example-sentence',
-  title: 'Show unverified example sentences for A1+ vocab',
+  title: 'Show unverified example sentences for A5 vocab',
   description:
-    'After a correct answer, show example sentences for A1+ vocab that Bunpro\'s website hides ' +
-    '(the mobile app already shows them). A different sentence rotates each review session.',
+    'After a correct answer, show example sentences for A5 vocab that Bunpro\'s website still hides ' +
+    '(A1–A4 now have official cloze sentences). A different sentence rotates each review session.',
   enabledByDefault: true,
 
   start() {

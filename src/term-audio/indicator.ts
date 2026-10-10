@@ -58,18 +58,33 @@ function paintExampleControls(
   origins: ReadonlyMap<number, AudioOrigin> | null,
   afterSubmit: boolean,
 ): void {
-  if (!origins || origins.size === 0) {
+  if (!afterSubmit) {
     return;
   }
+  if (origins && origins.size > 0) {
+    for (const control of findExamplesListPlayControls()) {
+      const id = studyQuestionIdOfPlayControl(control);
+      if (id === null) {
+        continue;
+      }
+      const origin = origins.get(id);
+      if (origin) {
+        paintControl(control, origin, afterSubmit);
+      }
+    }
+    return;
+  }
+  // Origins still loading — Bunpro’s default is accent blue; force TTS white now
+  // so speakers do not flash blue→white when the lookup finishes.
+  paintExampleControlsPendingTts();
+}
+
+/** White TTS cue only; leave title as Bunpro’s until the engine is known. */
+function paintExampleControlsPendingTts(): void {
   for (const control of findExamplesListPlayControls()) {
-    const id = studyQuestionIdOfPlayControl(control);
-    if (id === null) {
-      continue;
-    }
-    const origin = origins.get(id);
-    if (origin) {
-      paintControl(control, origin, afterSubmit);
-    }
+    rememberPlayTitle(control);
+    control.classList.add(TTS_AUDIO_CLASS);
+    control.classList.remove(REAL_AUDIO_CLASS);
   }
 }
 

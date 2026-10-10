@@ -4,13 +4,13 @@ Open settings from the **sliders icon** in the site header (between Search and H
 
 ### Play real speakers instead of TTS audio
 
-When Bunpro would play TTS (text-to-speech) vocab audio, this prefers a recording from a Japanese speaker — looked up the same way [Yomitan](https://github.com/yomidevs/yomitan) does. Play buttons are **white** for TTS and **blue** for real audio; the tooltip reveals the source (JPod101, Jisho, Bunpro TTS, or Bunpro Recording).
+When Bunpro would play TTS (text-to-speech) vocab audio, this prefers a recording from a Japanese speaker — looked up the same way [Yomitan](https://github.com/yomidevs/yomitan) does. Play buttons are **white** for TTS and **blue** for real audio; the tooltip reveals the source (JPod101, Jisho, Bunpro Classic / Gemini / ElevenLabs TTS, or Bunpro Recording).
 
 After you answer, the answer-bar control is a simple **play ↔ pause** toggle (click or `P`) — including when Bunpro autoplays on a correct answer — without opening Bunpro’s X / timer player bar. Sentence audio stays on Bunpro’s clip; term-only cards can fall back to a JPod recording in the same control. Prefetch left over from the previous review is ignored so the wrong sentence does not play. If Tampermonkey’s privilege bridge is missing (so dictionary lookups cannot run), a one-time alert explains that Update/Reinstall is needed.
 
-### Show unverified example sentences for A1+ vocab
+### Show unverified example sentences for A5 vocab
 
-After a correct answer, show example sentences for A1+ vocab that Bunpro's website hides (the mobile app already has this feature). A different sentence rotates each review session.
+After a correct answer, show example sentences for A5 vocab that Bunpro's website still hides (A1–A4 now have official cloze sentences). A different sentence rotates each review session.
 
 ### Add a wrong answer as a synonym
 

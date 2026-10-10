@@ -1,4 +1,5 @@
 import { findAnswerConsole } from '../bunpro/quiz-dom';
+import { readQuizState } from '../bunpro/quiz-state';
 import { element, svgIcon } from '../dom';
 import { injectStyles } from '../styles';
 import { areKeystrokesClaimed, hasModifier } from '../ui/keystrokes';
@@ -119,12 +120,15 @@ function ownedAnswerBarUrl(src: string, replacement: string | null): string | nu
     return playUrl ?? recording ?? prefetch;
   }
   // Bunpro autoplayed a leftover prefetch we refuse — prefer our synced URL.
+  // Quiz-only: on vocab/grammar pages the same CDN URL is a real Examples play
+  // (Gemini / ElevenLabs / classic TTS) and must not be rewritten to term audio.
   const rawPrefetch = prefetchAudioHref();
   if (
     playUrl &&
     rawPrefetch &&
     urlMatchesOwned(src, replacement, rawPrefetch) &&
-    !prefetch
+    !prefetch &&
+    readQuizState().isPostAttempt
   ) {
     return playUrl;
   }

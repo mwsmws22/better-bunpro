@@ -2,14 +2,15 @@ import { findClozeSentence, findNativeSentenceCard, findQuizArticle } from '../b
 import type { StudyQuestion } from '../bunpro/api';
 import { readQuizState } from '../bunpro/quiz-state';
 import { shownSentence } from '../quiz-sentence/slot';
-import { bunproClipOrigin, type AudioOrigin } from './origin';
+import { bunproClipOrigin, isBunproSynthesisedAudioUrl, type AudioOrigin } from './origin';
 import { prefetchAudioHref } from './prefetch-audio';
 
 /**
  * Sentence-example speakers use this title. Term controls do not:
  * answer-bar play uses Bunpro's default title; Details pitch play has none.
  */
-const SENTENCE_PLAY = 'button[title="Play audio"]';
+const SENTENCE_PLAY =
+  'button[title="Play audio"], button[data-bb-audio-title="Play audio"]';
 
 /**
  * Whether the on-screen *example sentence* has its own clip.
@@ -123,7 +124,16 @@ export function answerBarPrefetchHref(): string | null {
     return pronunciationPrefetchMatchesCard(href) ? href : null;
   }
   if (isSentencePrefetch(href)) {
-    return prefetchMatchesOnScreenSentence(findQuizArticle()) ? href : null;
+    const article = findQuizArticle();
+    if (prefetchMatchesOnScreenSentence(article)) {
+      return href;
+    }
+    // Cloze blanks omit the answer word, so the filename stem cannot match the
+    // prompt. A sentence Play control still means this prefetch is current.
+    if (article?.querySelector('.bp-quiz-question') && article.querySelector(SENTENCE_PLAY)) {
+      return href;
+    }
+    return null;
   }
   return null;
 }
@@ -165,7 +175,7 @@ function prefetchMatchesOnScreenSentence(article: HTMLElement | null): boolean {
 }
 
 function isSentencePrefetch(href: string): boolean {
-  return href.includes('/audio/vocab/tts/') || href.includes('/audio/grammar/');
+  return isBunproSynthesisedAudioUrl(href) || href.includes('/audio/grammar/');
 }
 
 function prefetchSentenceStem(): string | null {
@@ -173,24 +183,26 @@ function prefetchSentenceStem(): string | null {
   if (!href || !isSentencePrefetch(href)) {
     return null;
   }
-  let file: string;
-  try {
-    file = decodeURIComponent(href.slice(href.lastIndexOf('/') + 1));
-  } catch {
-    return null;
-  }
-  const stem = file.replace(/-(male|female)\.mp3$/i, '').replace(/\.mp3$/i, '');
+  const stem = audioFilenameStem(href);
   return stem.length > 0 ? stem : null;
 }
 
-function pronunciationPrefetchMatchesCard(href: string): boolean {
+/**
+ * Bunpro filenames are `{stem}-{male|female}.mp3`; ElevenLabs adds a unix
+ * timestamp: `{stem}-{male|female}-{ms}.mp3`.
+ */
+function audioFilenameStem(href: string): string {
   let file: string;
   try {
     file = decodeURIComponent(href.slice(href.lastIndexOf('/') + 1));
   } catch {
-    return false;
+    return '';
   }
-  const stem = file.replace(/-(male|female)\.mp3$/i, '').replace(/\.mp3$/i, '');
+  return file.replace(/-(male|female)(-\d+)?\.mp3$/i, '').replace(/\.mp3$/i, '');
+}
+
+function pronunciationPrefetchMatchesCard(href: string): boolean {
+  const stem = audioFilenameStem(href);
   if (!stem) {
     return false;
   }
@@ -235,15 +247,16 @@ function quizHasVisibleSentencePlay(article: HTMLElement): boolean {
 
 /**
  * Bunpro prefetches the clip the current UI will play. Example/sentence TTS
- * uses `/audio/vocab/tts/…`; term pronunciation uses `/audio/vocab/pronunciation/…`.
- * Never trust this alone — see {@link exampleOnScreenHasAudio}.
+ * uses `/audio/vocab/tts/…` or `/audio/vocab/gemini/…`; term pronunciation uses
+ * `/audio/vocab/pronunciation/…`. Never trust this alone — see
+ * {@link exampleOnScreenHasAudio}.
  */
 function prefetchIsExampleSentenceAudio(): boolean {
   const href = prefetchAudioHref();
   if (!href) {
     return false;
   }
-  return href.includes('/audio/vocab/tts/');
+  return isBunproSynthesisedAudioUrl(href);
 }
 
 function isVisiblyDisplayed(el: HTMLElement): boolean {

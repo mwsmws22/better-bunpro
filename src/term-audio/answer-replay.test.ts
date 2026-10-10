@@ -274,4 +274,21 @@ describe('takeOverBunproAnswerPlay', () => {
       document.getElementById('bb-answer-bar-replay')?.classList.contains('bb-replay-playing'),
     ).toBe(true);
   });
+
+  it('does not rewrite vocab-page Gemini example plays to the term playUrl', async () => {
+    const { syncAnswerBarReplay, takeOverBunproAnswerPlay } = await import('./answer-replay');
+    const gemini =
+      'https://cdn.example/audio/vocab/gemini/11476/study_questions/ゲラゲラ-male.mp3';
+    document.body.innerHTML = `
+      <div class="bp-reviewable-root">
+        <li id="study-question-1"><button title="Play audio"></button></li>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio" href="${gemini}" />
+    `;
+    syncAnswerBarReplay({ enabled: true, playUrl: 'blob:jpod' });
+    const media = mockMedia(gemini);
+
+    expect(takeOverBunproAnswerPlay(media, gemini, null)).toBe(false);
+    expect(media.src).toBe(gemini);
+  });
 });

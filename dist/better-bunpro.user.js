@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.3
+// @version      0.9.4
 // @author       mwsmws22
-// @description  Fixes and features I wish Bunpro had natively — real speaker audio, A1+ example sentences, add synonyms, and more.
+// @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
 // @match        https://bunpro.jp/*
 // @connect      assets.languagepod101.com
@@ -101,7 +101,7 @@
 	function watchBodyRemounts(onRemount) {
 		return watchRemounts(document.body, onRemount);
 	}
-	var QUIZ_ARTICLE = "#js-quiz article:not(.bp-reviewable-root)";
+	var QUIZ_ARTICLE = "#js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container)";
 	function findQuizArticle() {
 		return document.querySelector(QUIZ_ARTICLE);
 	}
@@ -233,7 +233,7 @@
 		const root = document.querySelector(".bp-reviewable-root");
 		if (!root) return [];
 		const controls = [];
-		for (const card of root.querySelectorAll(`[id^="${NATIVE_CARD_ID_PREFIX}"]`)) for (const button of card.querySelectorAll("button[title=\"Play audio\"]")) if (button instanceof HTMLElement) controls.push(button);
+		for (const card of root.querySelectorAll(`[id^="${NATIVE_CARD_ID_PREFIX}"]`)) for (const button of card.querySelectorAll("button[title=\"Play audio\"], button[data-bb-audio-title=\"Play audio\"]")) if (button instanceof HTMLElement) controls.push(button);
 		return controls;
 	}
 	function studyQuestionIdOfPlayControl(control) {
@@ -615,6 +615,14 @@ button.bb-audio-real {
  * only synthesised audio will play, so the tint means a real recording.
  */
 button.bb-audio-tts {
+  color: rgb(var(--c-primary-fg) / 1) !important;
+}
+/**
+ * Examples list speakers are Bunpro-accent (blue) in the DOM. Treat unpainted
+ * Play controls as TTS white immediately so they do not flash blue while we
+ * resolve classic / Gemini / ElevenLabs. \`bb-audio-real\` still wins for recordings.
+ */
+.bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
   color: rgb(var(--c-primary-fg) / 1) !important;
 }
 /** Injected answer-bar toggle: swap play↔pause without remounting. */
@@ -1487,8 +1495,8 @@ input.bb-correct-guess {
 	var stopWatchingQuiz$2 = null;
 	var exampleSentenceFeature = {
 		id: "example-sentence",
-		title: "Show unverified example sentences for A1+ vocab",
-		description: "After a correct answer, show example sentences for A1+ vocab that Bunpro's website hides (the mobile app already shows them). A different sentence rotates each review session.",
+		title: "Show unverified example sentences for A5 vocab",
+		description: "After a correct answer, show example sentences for A5 vocab that Bunpro's website still hides (A1–A4 now have official cloze sentences). A different sentence rotates each review session.",
 		enabledByDefault: true,
 		start() {
 			injectStyles();
@@ -1598,7 +1606,9 @@ input.bb-correct-guess {
 		switch (origin) {
 			case "jpod101": return "JPod101 Recording";
 			case "jisho": return "Jisho Recording";
-			case "bunpro-tts": return "Bunpro TTS";
+			case "bunpro-tts": return "Bunpro Classic TTS";
+			case "bunpro-tts-gemini": return "Bunpro Gemini TTS";
+			case "bunpro-tts-elevenlabs": return "Bunpro ElevenLabs TTS";
 			case "bunpro-rec": return "Bunpro Recording";
 		}
 	}
@@ -1613,14 +1623,20 @@ input.bb-correct-guess {
 	function bunproOrigin(hasTtsAudio) {
 		return hasTtsAudio ? "bunpro-tts" : "bunpro-rec";
 	}
+	function isBunproSynthesisedAudioUrl(url) {
+		return url.includes("/audio/vocab/tts/") || url.includes("/audio/vocab/gemini/") || url.includes("/audio/vocab/elevenlabs/");
+	}
 	function bunproClipOrigin(url) {
 		if (!url) return null;
-		return url.includes("/audio/vocab/tts/") ? "bunpro-tts" : "bunpro-rec";
+		if (url.includes("/audio/vocab/gemini/")) return "bunpro-tts-gemini";
+		if (url.includes("/audio/vocab/elevenlabs/")) return "bunpro-tts-elevenlabs";
+		if (url.includes("/audio/vocab/tts/")) return "bunpro-tts";
+		return "bunpro-rec";
 	}
 	function prefetchAudioHref() {
 		return document.querySelector("link#prefetch-audio")?.href ?? document.querySelector("link[rel=\"prefetch\"][as=\"audio\"]")?.href ?? null;
 	}
-	var SENTENCE_PLAY = "button[title=\"Play audio\"]";
+	var SENTENCE_PLAY = "button[title=\"Play audio\"], button[data-bb-audio-title=\"Play audio\"]";
 	function exampleOnScreenHasAudio() {
 		const shown = shownSentence();
 		if (shown) {
@@ -1649,7 +1665,12 @@ input.bb-correct-guess {
 		const href = prefetchAudioHref();
 		if (!href) return null;
 		if (href.includes("/audio/vocab/pronunciation/")) return pronunciationPrefetchMatchesCard(href) ? href : null;
-		if (isSentencePrefetch(href)) return prefetchMatchesOnScreenSentence(findQuizArticle()) ? href : null;
+		if (isSentencePrefetch(href)) {
+			const article = findQuizArticle();
+			if (prefetchMatchesOnScreenSentence(article)) return href;
+			if (article?.querySelector(".bp-quiz-question") && article.querySelector(SENTENCE_PLAY)) return href;
+			return null;
+		}
 		return null;
 	}
 	function clozeHasPrefetchedSentenceAudio(article) {
@@ -1666,28 +1687,25 @@ input.bb-correct-guess {
 		return isCharacterSubsequence(stem, onScreen);
 	}
 	function isSentencePrefetch(href) {
-		return href.includes("/audio/vocab/tts/") || href.includes("/audio/grammar/");
+		return isBunproSynthesisedAudioUrl(href) || href.includes("/audio/grammar/");
 	}
 	function prefetchSentenceStem() {
 		const href = prefetchAudioHref();
 		if (!href || !isSentencePrefetch(href)) return null;
-		let file;
-		try {
-			file = decodeURIComponent(href.slice(href.lastIndexOf("/") + 1));
-		} catch {
-			return null;
-		}
-		const stem = file.replace(/-(male|female)\.mp3$/i, "").replace(/\.mp3$/i, "");
+		const stem = audioFilenameStem(href);
 		return stem.length > 0 ? stem : null;
 	}
-	function pronunciationPrefetchMatchesCard(href) {
+	function audioFilenameStem(href) {
 		let file;
 		try {
 			file = decodeURIComponent(href.slice(href.lastIndexOf("/") + 1));
 		} catch {
-			return false;
+			return "";
 		}
-		const stem = file.replace(/-(male|female)\.mp3$/i, "").replace(/\.mp3$/i, "");
+		return file.replace(/-(male|female)(-\d+)?\.mp3$/i, "").replace(/\.mp3$/i, "");
+	}
+	function pronunciationPrefetchMatchesCard(href) {
+		const stem = audioFilenameStem(href);
 		if (!stem) return false;
 		if (readQuizState().answers.some((answer) => answer.includes(stem) || stem.includes(answer))) return true;
 		return (findQuizArticle()?.textContent ?? "").includes(stem);
@@ -1713,7 +1731,7 @@ input.bb-correct-guess {
 	function prefetchIsExampleSentenceAudio() {
 		const href = prefetchAudioHref();
 		if (!href) return false;
-		return href.includes("/audio/vocab/tts/");
+		return isBunproSynthesisedAudioUrl(href);
 	}
 	function isVisiblyDisplayed(el) {
 		const rect = el.getBoundingClientRect();
@@ -1805,7 +1823,7 @@ input.bb-correct-guess {
 		if (recording && urlMatchesOwned(src, replacement, recording)) return playUrl ?? recording;
 		if (prefetch && urlMatchesOwned(src, replacement, prefetch)) return playUrl ?? recording ?? prefetch;
 		const rawPrefetch = prefetchAudioHref();
-		if (playUrl && rawPrefetch && urlMatchesOwned(src, replacement, rawPrefetch) && !prefetch) return playUrl;
+		if (playUrl && rawPrefetch && urlMatchesOwned(src, replacement, rawPrefetch) && !prefetch && readQuizState().isPostAttempt) return playUrl;
 		return null;
 	}
 	function urlMatchesOwned(src, replacement, owned) {
@@ -2090,12 +2108,23 @@ input.bb-correct-guess {
 		removeLegacyChip();
 	}
 	function paintExampleControls(origins, afterSubmit) {
-		if (!origins || origins.size === 0) return;
+		if (!afterSubmit) return;
+		if (origins && origins.size > 0) {
+			for (const control of findExamplesListPlayControls()) {
+				const id = studyQuestionIdOfPlayControl(control);
+				if (id === null) continue;
+				const origin = origins.get(id);
+				if (origin) paintControl(control, origin, afterSubmit);
+			}
+			return;
+		}
+		paintExampleControlsPendingTts();
+	}
+	function paintExampleControlsPendingTts() {
 		for (const control of findExamplesListPlayControls()) {
-			const id = studyQuestionIdOfPlayControl(control);
-			if (id === null) continue;
-			const origin = origins.get(id);
-			if (origin) paintControl(control, origin, afterSubmit);
+			rememberPlayTitle(control);
+			control.classList.add(TTS_AUDIO_CLASS);
+			control.classList.remove(REAL_AUDIO_CLASS);
 		}
 	}
 	function paintControl(control, origin, afterSubmit) {
@@ -2300,14 +2329,19 @@ input.bb-correct-guess {
 			const hit = await findReplacement(audio);
 			const leaveAnswerOnBunpro = !options.ignoreExampleAudio && exampleOnScreenHasAudio();
 			const bunproPlayUrl = answerBarPrefetchHref() ?? audio.ttsUrls[0] ?? null;
+			const answerBunpro = originForBunproPlayUrl(bunproPlayUrl, bunpro);
 			onOrigins({
-				answer: leaveAnswerOnBunpro ? bunpro : hit?.origin ?? bunpro,
+				answer: leaveAnswerOnBunpro ? answerBunpro : hit?.origin ?? answerBunpro,
 				details: hit?.origin ?? bunpro,
 				answerPlayUrl: leaveAnswerOnBunpro ? bunproPlayUrl : hit?.url ?? bunproPlayUrl
 			});
 		} catch (error) {
 			warnOnce("term-audio", "Could not replace synthesised term audio:", error);
 		}
+	}
+	function originForBunproPlayUrl(url, fallback) {
+		if (url && isBunproSynthesisedAudioUrl(url)) return bunproClipOrigin(url) ?? fallback;
+		return fallback;
 	}
 	function hasTermAudio(item) {
 		return item.male_audio_url !== null || item.female_audio_url !== null;
@@ -2460,11 +2494,16 @@ input.bb-correct-guess {
 				const state = readQuizState();
 				const review = state.reviewable ? reviewKey(state) : null;
 				if (review !== null && shownFor === review && (shownAnswerOrigin !== null || shownDetailsOrigin !== null)) {
-					if (shownAnswerOrigin !== null && isRealAudioOrigin(shownAnswerOrigin) && exampleOnScreenHasAudio()) {
-						shownAnswerOrigin = "bunpro-tts";
+					if (shownAnswerOrigin !== null && exampleOnScreenHasAudio()) {
 						const prefetch = answerBarPrefetchHref();
-						if (prefetch) shownAnswerPlayUrl = prefetch;
-						cancelScheduledTermAutoplay();
+						if (prefetch) {
+							shownAnswerPlayUrl = prefetch;
+							shownAnswerOrigin = bunproClipOrigin(prefetch) ?? "bunpro-tts";
+							cancelScheduledTermAutoplay();
+						} else if (isRealAudioOrigin(shownAnswerOrigin)) {
+							shownAnswerOrigin = "bunpro-tts";
+							cancelScheduledTermAutoplay();
+						}
 					}
 					paintCues();
 					return;
@@ -2534,7 +2573,10 @@ input.bb-correct-guess {
 			shownAnswerPlayUrl = origins.answerPlayUrl;
 			if (keepBunproAnswer) {
 				const prefetch = answerBarPrefetchHref();
-				if (prefetch) shownAnswerPlayUrl = prefetch;
+				if (prefetch) {
+					shownAnswerPlayUrl = prefetch;
+					shownAnswerOrigin = bunproClipOrigin(prefetch) ?? shownAnswerOrigin;
+				}
 			}
 			paintCues();
 			maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin);
@@ -2570,6 +2612,7 @@ input.bb-correct-guess {
 			shownExampleOrigins = null;
 			clearAudioSourceIndicator();
 		} else if (shownDetailsOrigin === null) return;
+		paintCues();
 		const term = await reviewableFromVocabSlug(slug);
 		if (!term || vocabSlugFromPath() !== slug) return;
 		loadExampleOrigins(term, () => vocabSlugFromPath() === slug);
@@ -2598,6 +2641,7 @@ input.bb-correct-guess {
 			shownExampleOrigins = null;
 			clearAudioSourceIndicator();
 		} else if (shownExampleOrigins === null) return;
+		paintCues();
 		const term = await reviewableFromGrammarSlug(slug);
 		if (!term || grammarSlugFromPath() !== slug) return;
 		await loadExampleOrigins(term, () => grammarSlugFromPath() === slug);
@@ -2765,7 +2809,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.9.3";
+	var version = "0.9.4";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;

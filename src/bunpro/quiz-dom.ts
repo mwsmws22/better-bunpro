@@ -4,7 +4,7 @@ import { watchBodyRemounts } from '../dom/remount';
  * The quiz and the (optional) item-detail panel are both `<article>` elements
  * inside `#js-quiz`, so every selector here excludes the detail panel.
  */
-const QUIZ_ARTICLE = '#js-quiz article:not(.bp-reviewable-root)';
+const QUIZ_ARTICLE = '#js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container)';
 
 export function findQuizArticle(): HTMLElement | null {
   return document.querySelector<HTMLElement>(QUIZ_ARTICLE);
@@ -270,7 +270,11 @@ export function findExamplesListPlayControls(): HTMLElement[] {
   }
   const controls: HTMLElement[] = [];
   for (const card of root.querySelectorAll(`[id^="${NATIVE_CARD_ID_PREFIX}"]`)) {
-    for (const button of card.querySelectorAll('button[title="Play audio"]')) {
+    // After we paint a source tooltip, `title` is no longer "Play audio"; the
+    // original is kept on `data-bb-audio-title` (see term-audio/indicator).
+    for (const button of card.querySelectorAll(
+      'button[title="Play audio"], button[data-bb-audio-title="Play audio"]',
+    )) {
       if (button instanceof HTMLElement) {
         controls.push(button);
       }

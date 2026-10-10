@@ -1,5 +1,11 @@
 /** Where the clip that will play for this term came from. */
-export type AudioOrigin = 'jpod101' | 'jisho' | 'bunpro-tts' | 'bunpro-rec';
+export type AudioOrigin =
+  | 'jpod101'
+  | 'jisho'
+  | 'bunpro-tts'
+  | 'bunpro-tts-gemini'
+  | 'bunpro-tts-elevenlabs'
+  | 'bunpro-rec';
 
 export function labelForOrigin(origin: AudioOrigin): string {
   switch (origin) {
@@ -8,7 +14,11 @@ export function labelForOrigin(origin: AudioOrigin): string {
     case 'jisho':
       return 'Jisho Recording';
     case 'bunpro-tts':
-      return 'Bunpro TTS';
+      return 'Bunpro Classic TTS';
+    case 'bunpro-tts-gemini':
+      return 'Bunpro Gemini TTS';
+    case 'bunpro-tts-elevenlabs':
+      return 'Bunpro ElevenLabs TTS';
     case 'bunpro-rec':
       return 'Bunpro Recording';
   }
@@ -34,12 +44,34 @@ export function bunproOrigin(hasTtsAudio: boolean): AudioOrigin {
 }
 
 /**
- * Bunpro sentence clips: synthesised under `/audio/vocab/tts/`, otherwise a
- * human recording (vocab pronunciation, grammar `/audio/grammar/…`, etc.).
+ * Bunpro synthesised clips: classic `/tts/`, Gemini `/gemini/`, and ElevenLabs
+ * `/elevenlabs/`. Human vocab pronunciation and grammar `/audio/grammar/…`
+ * stay outside this.
+ */
+export function isBunproSynthesisedAudioUrl(url: string): boolean {
+  return (
+    url.includes('/audio/vocab/tts/') ||
+    url.includes('/audio/vocab/gemini/') ||
+    url.includes('/audio/vocab/elevenlabs/')
+  );
+}
+
+/**
+ * Bunpro sentence clips: classic / Gemini / ElevenLabs TTS, otherwise a human
+ * recording (vocab pronunciation, grammar `/audio/grammar/…`, etc.).
  */
 export function bunproClipOrigin(url: string | null | undefined): AudioOrigin | null {
   if (!url) {
     return null;
   }
-  return url.includes('/audio/vocab/tts/') ? 'bunpro-tts' : 'bunpro-rec';
+  if (url.includes('/audio/vocab/gemini/')) {
+    return 'bunpro-tts-gemini';
+  }
+  if (url.includes('/audio/vocab/elevenlabs/')) {
+    return 'bunpro-tts-elevenlabs';
+  }
+  if (url.includes('/audio/vocab/tts/')) {
+    return 'bunpro-tts';
+  }
+  return 'bunpro-rec';
 }
