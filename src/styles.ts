@@ -234,6 +234,21 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   font-size: 1.375rem !important;
   line-height: 1.45 !important;
 }
+/**
+ * Cloze prompt hierarchy like the native app: JP primary, EN clearly secondary.
+ * Bunpro’s mobile web uses ~19px / ~16px (or loose LH) so English competes.
+ */
+html.bb-mobile-web #js-quiz .bp-quiz-question,
+html.bb-mobile-web #js-quiz .bp-quiz-question .text-center,
+html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw {
+  font-size: 1.25rem !important;
+  line-height: 1.5 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz .bp-quiz-trans:not(.bp-quiz-trans--hint) {
+  font-size: 0.75rem !important;
+  line-height: 1.4 !important;
+}
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-bottom: auto;
 }
@@ -274,6 +289,20 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   margin-top: 0.75rem;
   margin-bottom: auto;
   max-width: 100%;
+}
+/**
+ * Match Bunpro app quiz-card type: JP ~body, EN clearly smaller (extra-small).
+ * Appended unverified cards used the Examples-list preset and looked huge on phone.
+ */
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-ddw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-ddw {
+  font-size: 1rem !important;
+  line-height: 1.4 !important;
+}
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-sdw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
+  font-size: 0.75rem !important;
+  line-height: 1.35 !important;
 }
 /* Bunpro leaves invisible min-height spacers that bias the visual center upward. */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {

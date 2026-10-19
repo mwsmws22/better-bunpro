@@ -36,7 +36,7 @@ Bunpro’s **Review SRS → Hide** only conceals the level (Beginner / Seasoned 
 
 ### Improved web mobile experience
 
-On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, prompt centered in the remaining frame, no leftover gap when the soft keyboard closes. Translation terms are sized like cloze prompts; example sentences stay with the question instead of parking against the answer bar. Desktop layouts are unchanged.
+On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, prompt centered in the remaining frame, no leftover gap when the soft keyboard closes. Translation terms and cloze / example-sentence type follow the native app hierarchy (Japanese primary, English secondary); example sentences stay with the question instead of parking against the answer bar. Desktop layouts are unchanged.
 
 <hr>
 
