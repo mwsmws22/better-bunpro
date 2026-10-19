@@ -155,6 +155,74 @@ html.bb-skipping-undo-modal .Toast {
 html.bb-hide-srs li[title="Your SRS progress"] {
   display: none !important;
 }
+/**
+ * Improved web mobile experience: pin the review shell to the visible
+ * viewport (visualViewport height) so the soft keyboard does not leave a gap.
+ * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
+ */
+html.bb-mobile-web,
+html.bb-mobile-web body {
+  height: var(--bb-vv-height, 100dvh);
+  max-height: var(--bb-vv-height, 100dvh);
+  overflow: hidden;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
+}
+html.bb-mobile-web #js-page-top {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  width: 100%;
+  align-items: stretch;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
+  flex: 1 1 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > header {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-console,
+html.bb-mobile-web #js-quiz .InputManual {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
+  display: none;
+}
 .bb-popover {
   width: max-content;
   max-width: min(20rem, calc(100vw - 1rem));

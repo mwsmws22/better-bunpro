@@ -4,6 +4,7 @@ import { editOnLeftFeature } from './features/edit-on-left/feature';
 import { exampleSentenceFeature } from './features/example-sentence/feature';
 import { hideSrsFeature } from './features/hide-srs/feature';
 import { humanTermAudioFeature } from './features/human-term-audio/feature';
+import { improvedMobileWebFeature } from './features/improved-mobile-web/feature';
 import { keepGuessingFeature } from './features/keep-guessing/feature';
 import { sentenceCycleFeature } from './features/sentence-cycle/feature';
 import { mountSettingsLaunchers } from './settings/launcher';
@@ -16,6 +17,7 @@ registerFeature(humanTermAudioFeature);
 registerFeature(addSynonymFeature);
 registerFeature(editOnLeftFeature);
 registerFeature(hideSrsFeature);
+registerFeature(improvedMobileWebFeature);
 
 mountSettingsLaunchers();
 mountHotkeyGuide();
