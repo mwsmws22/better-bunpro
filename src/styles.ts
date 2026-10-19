@@ -231,19 +231,20 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
  * sm breakpoint. Cap them to subtitle scale so they match cloze prompts.
  */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
-  font-size: 1.375rem !important;
+  font-size: 1.25rem !important;
   line-height: 1.45 !important;
 }
 /**
- * Cloze type matched to Bunpro’s native app (Pixel 6 screenshot): ink height
- * of JP glyphs vs EN lowercase ≈ 17.5:11 (ratio ≈ 1.59). Use 22px / 14px.
- * Stronger selectors so Bunpro utility / prose rules cannot re-inflate English.
+ * Cloze type from Pixel measurements (scale to CSS via 20/12 = 50/30):
+ *   JP/EN size 5/3 → 20px / 12px
+ *   EN line pitch 40px → 16px (line-height 4/3)
+ *   JP↔EN gap 60px → 24px (2em at EN size)
  */
 html.bb-mobile-web #js-quiz .bp-quiz-question,
 html.bb-mobile-web #js-quiz .bp-quiz-question > .text-center,
 html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw,
 html.bb-mobile-web #js-quiz .bp-quiz-question ruby {
-  font-size: 1.375rem !important;
+  font-size: 1.25rem !important;
   line-height: 1.55 !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt {
@@ -253,10 +254,11 @@ html.bb-mobile-web #js-quiz .bp-quiz-question rt {
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
-  font-size: 0.875rem !important;
-  line-height: 1.45 !important;
+  font-size: 0.75rem !important;
+  line-height: calc(40 / 30) !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
+  margin-top: calc(60 / 30 * 1em) !important;
   margin-bottom: auto;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
@@ -311,8 +313,12 @@ html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
   font-size: 0.75rem !important;
   line-height: 1.35 !important;
 }
-/* Bunpro leaves invisible min-height spacers that bias the visual center upward. */
+/* Invisible Bunpro spacers / empty hint rows bias the prompt upward — drop them. */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:has(.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> p.opacity-0):not(:has(> :not(p))) {
   display: none !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
