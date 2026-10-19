@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.1
+// @version      0.10.2
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -738,19 +738,26 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   line-height: 1.45 !important;
 }
 /**
- * Cloze prompt hierarchy like the native app: JP primary, EN clearly secondary.
- * Bunpro’s mobile web uses ~19px / ~16px (or loose LH) so English competes.
+ * Cloze type matched to Bunpro’s native app (Pixel 6 screenshot): ink height
+ * of JP glyphs vs EN lowercase ≈ 17.5:11 (ratio ≈ 1.59). Use 22px / 14px.
+ * Stronger selectors so Bunpro utility / prose rules cannot re-inflate English.
  */
 html.bb-mobile-web #js-quiz .bp-quiz-question,
-html.bb-mobile-web #js-quiz .bp-quiz-question .text-center,
-html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw {
-  font-size: 1.25rem !important;
-  line-height: 1.5 !important;
+html.bb-mobile-web #js-quiz .bp-quiz-question > .text-center,
+html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw,
+html.bb-mobile-web #js-quiz .bp-quiz-question ruby {
+  font-size: 1.375rem !important;
+  line-height: 1.55 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question rt {
+  font-size: 0.5em !important;
+  line-height: 1.2 !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
-html.bb-mobile-web #js-quiz .bp-quiz-trans:not(.bp-quiz-trans--hint) {
-  font-size: 0.75rem !important;
-  line-height: 1.4 !important;
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
+  font-size: 0.875rem !important;
+  line-height: 1.45 !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-bottom: auto;
@@ -3058,7 +3065,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.1";
+	var version = "0.10.2";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
