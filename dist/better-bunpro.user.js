@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.4
+// @version      0.10.0
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -43,7 +43,7 @@
 		for (const listener of listeners) listener(key);
 	}
 	var features = [];
-	var running = new Set();
+	var running$1 = new Set();
 	function registerFeature(feature) {
 		features.push(feature);
 	}
@@ -62,13 +62,13 @@
 	}
 	function syncFeature(feature) {
 		const shouldRun = isFeatureEnabled(feature);
-		if (shouldRun === running.has(feature.id)) return;
+		if (shouldRun === running$1.has(feature.id)) return;
 		if (shouldRun) {
 			feature.start();
-			running.add(feature.id);
+			running$1.add(feature.id);
 		} else {
 			feature.stop();
-			running.delete(feature.id);
+			running$1.delete(feature.id);
 		}
 	}
 	function enabledKey(feature) {
@@ -657,6 +657,140 @@ html.bb-skipping-undo-modal .Toast {
  */
 html.bb-hide-srs li[title="Your SRS progress"] {
   display: none !important;
+}
+/**
+ * Improved web mobile experience: pin the review shell to the visible
+ * viewport (visualViewport height) so the soft keyboard does not leave a gap.
+ * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
+ */
+html.bb-mobile-web,
+html.bb-mobile-web body {
+  height: var(--bb-vv-height, 100dvh);
+  max-height: var(--bb-vv-height, 100dvh);
+  overflow: hidden;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
+}
+html.bb-mobile-web #js-page-top {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  width: 100%;
+  align-items: stretch;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
+  flex: 1 1 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > header {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center;
+  justify-content: flex-start;
+}
+/**
+ * Optically center the prompt in the section. Auto margins eat free space
+ * above/below the prompt group; keep kanji + revealed answer meanings flush
+ * (do not put margin-bottom:auto on the term when the answer <p> is visible).
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  margin-top: auto;
+}
+/**
+ * Translation/flash terms use Bunpro’s desktop quiz size (≈40px) below the
+ * sm breakpoint. Cap them to subtitle scale so they match cloze prompts.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  font-size: 1.375rem !important;
+  line-height: 1.45 !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
+  margin-bottom: auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/* Pre-answer: only a hidden spacer follows — center the term alone. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ *)),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ *)) {
+  margin-bottom: auto;
+}
+/* Post-answer: meanings flush under the term; center that pair when no example. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0) {
+  margin-bottom: auto;
+  text-align: center;
+  width: 100%;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[id^='study-question-']),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/**
+ * Example sentence (unverified / cycle) belongs in the centered prompt group,
+ * not parked under margin-bottom:auto against the answer bar.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bb-sentence-slot,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[data-bb-study-question],
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[id^='study-question-'] {
+  margin-top: 0.75rem;
+  margin-bottom: auto;
+  max-width: 100%;
+}
+/* Bunpro leaves invisible min-height spacers that bias the visual center upward. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-console,
+html.bb-mobile-web #js-quiz .InputManual {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
+  display: none;
 }
 .bb-popover {
   width: max-content;
@@ -2697,6 +2831,97 @@ input.bb-correct-guess {
 		clearAnswerBarReplay();
 		clearAudioSourceIndicator();
 	}
+	var MOBILE_WEB_CLASS = "bb-mobile-web";
+	var MOBILE_UA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+	var onChange = null;
+	var active = false;
+	var synced = false;
+	function isMobileContext(width = window.innerWidth, userAgent = navigator.userAgent) {
+		return width <= 640 || MOBILE_UA.test(userAgent);
+	}
+	function startMobileGate(listener) {
+		stopMobileGate();
+		onChange = listener;
+		window.addEventListener("resize", reevaluate);
+		reevaluate();
+	}
+	function stopMobileGate() {
+		window.removeEventListener("resize", reevaluate);
+		const listener = onChange;
+		onChange = null;
+		if (!listener) {
+			clearClass();
+			return;
+		}
+		clearClass();
+		listener(false);
+	}
+	function reevaluate() {
+		setActive(isMobileContext());
+	}
+	function setActive(next) {
+		const hasClass = document.documentElement.classList.contains(MOBILE_WEB_CLASS);
+		if (synced && next === active && next === hasClass) return;
+		synced = true;
+		active = next;
+		document.documentElement.classList.toggle(MOBILE_WEB_CLASS, next);
+		onChange?.(next);
+	}
+	function clearClass() {
+		active = false;
+		synced = false;
+		document.documentElement.classList.remove(MOBILE_WEB_CLASS);
+	}
+	var BB_VV_HEIGHT = "--bb-vv-height";
+	var BB_VV_OFFSET_TOP = "--bb-vv-offset-top";
+	var running = false;
+	function startVisualViewportSync() {
+		stopVisualViewportSync();
+		running = true;
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.addEventListener("resize", sync);
+			vv.addEventListener("scroll", sync);
+		} else window.addEventListener("resize", sync);
+		sync();
+	}
+	function stopVisualViewportSync() {
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.removeEventListener("resize", sync);
+			vv.removeEventListener("scroll", sync);
+		}
+		window.removeEventListener("resize", sync);
+		running = false;
+		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
+		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
+	}
+	function sync() {
+		if (!running) return;
+		const vv = window.visualViewport;
+		const height = vv?.height ?? window.innerHeight;
+		const offsetTop = vv?.offsetTop ?? 0;
+		const root = document.documentElement.style;
+		root.setProperty(BB_VV_HEIGHT, `${height}px`);
+		root.setProperty(BB_VV_OFFSET_TOP, `${offsetTop}px`);
+	}
+	var improvedMobileWebFeature = {
+		id: "improved-mobile-web",
+		title: "Improved web mobile experience",
+		description: "On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, no leftover gap when the keyboard closes. Desktop layouts are unchanged. More mobile polish may land under this setting later.",
+		enabledByDefault: true,
+		start() {
+			injectStyles();
+			startMobileGate((active) => {
+				if (active) startVisualViewportSync();
+				else stopVisualViewportSync();
+			});
+		},
+		stop() {
+			stopMobileGate();
+			stopVisualViewportSync();
+		}
+	};
 	function bunproSentenceIndex(sentences) {
 		const shownId = nativeSentenceId();
 		if (shownId !== null) {
@@ -2809,7 +3034,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.9.4";
+	var version = "0.10.0";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -2953,7 +3178,7 @@ input.bb-correct-guess {
 			"aria-haspopup": "dialog"
 		}, [element("div", {
 			class: "bp-hover-bg__child rounded-normal",
-			style: "font-size: 2.25rem;"
+			style: "font-size: 1.625rem;"
 		}, [element("div", {
 			class: "relative flex items-center justify-center",
 			style: "width: 1em; height: 1em;"
@@ -3002,6 +3227,7 @@ input.bb-correct-guess {
 	registerFeature(addSynonymFeature);
 	registerFeature(editOnLeftFeature);
 	registerFeature(hideSrsFeature);
+	registerFeature(improvedMobileWebFeature);
 	mountSettingsLaunchers();
 	mountHotkeyGuide();
 	startEnabledFeatures();
