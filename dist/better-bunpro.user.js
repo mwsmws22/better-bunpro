@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.5
+// @version      0.10.6
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -719,6 +719,8 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   flex-direction: column !important;
   align-items: center;
   justify-content: flex-start;
+  /* Bunpro quiz section uses grid gap-6 (6px); flex replaces grid so restore it. */
+  gap: 0.375rem !important;
 }
 /**
  * Optically center the prompt in the section. Auto margins eat free space
@@ -730,41 +732,43 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   margin-top: auto;
 }
 /**
- * Translation/flash terms use Bunpro’s desktop quiz size (≈40px) below the
- * sm breakpoint. Cap them to subtitle scale so they match cloze prompts.
+ * Exact Bunpro mobile quiz type (<640px) from bunpro.jp CSS (APK 0.5.16
+ * embeds the same class names / design tokens; native Flutter mirrors them):
+ *   .bp-quiz-question  font-size 1.1875rem; line-height 2.125rem
+ *   .bp-quiz-trans     font-size .75rem;    line-height .875rem
+ *   rt                 font-size 46%;       line-height 1
+ * Flash terms ship as text-quiz-desktop (2.5rem) on phone web — cap to the
+ * cloze question size so they match the app’s mobile prompt.
  */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
-  font-size: 1.25rem !important;
-  line-height: 1.45 !important;
+  font-size: 1.1875rem !important;
+  line-height: 2.125rem !important;
 }
-/**
- * Cloze type from Pixel measurements (scale to CSS via 20/12 = 50/30):
- *   JP/EN size 5/3 → 20px / 12px
- *   EN inter-line gap: 44px bottom-of-normal → top-of-next-normal
- *     (36px from descender of p → top-of-next; use 44px body gap)
- *     → 17.6px at 12px EN → line-height (30+44)/30
- *   JP↔EN gap 60px → 24px (2em at EN size)
- */
 html.bb-mobile-web #js-quiz .bp-quiz-question,
 html.bb-mobile-web #js-quiz .bp-quiz-question > .text-center,
 html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw,
 html.bb-mobile-web #js-quiz .bp-quiz-question ruby {
-  font-size: 1.25rem !important;
-  line-height: 1.55 !important;
+  font-size: 1.1875rem !important;
+  line-height: 2.125rem !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt {
-  font-size: 0.5em !important;
-  line-height: 1.2 !important;
+  font-size: 46% !important;
+  line-height: 1 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-tense {
+  font-size: 0.75rem !important;
+  line-height: 0.875rem !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
   font-size: 0.75rem !important;
-  line-height: calc((30 + 44) / 30) !important;
+  line-height: 0.875rem !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
-  margin-top: calc(60 / 30 * 1em) !important;
+  margin-top: 0;
   margin-bottom: auto;
+  min-height: 0.875rem; /* --text-extra-small--line-height */
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[data-bb-study-question]),
@@ -805,18 +809,17 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   max-width: 100%;
 }
 /**
- * Match Bunpro app quiz-card type: JP ~body, EN clearly smaller (extra-small).
- * Appended unverified cards used the Examples-list preset and looked huge on phone.
+ * Example cards: Bunpro text-body / text-extra-small tokens.
  */
 html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-ddw,
 html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-ddw {
   font-size: 1rem !important;
-  line-height: 1.4 !important;
+  line-height: 1.25rem !important;
 }
 html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-sdw,
 html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
   font-size: 0.75rem !important;
-  line-height: 1.35 !important;
+  line-height: 0.875rem !important;
 }
 /* Invisible Bunpro spacers / empty hint rows bias the prompt upward — drop them. */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
@@ -3073,7 +3076,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.5";
+	var version = "0.10.6";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
