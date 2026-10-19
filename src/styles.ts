@@ -237,7 +237,7 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
 /**
  * Cloze type from Pixel measurements (scale to CSS via 20/12 = 50/30):
  *   JP/EN size 5/3 → 20px / 12px
- *   EN line pitch 40px → 16px (line-height 4/3)
+ *   EN inter-line gap 40px → 16px (line-height = EN size + gap = 70/30)
  *   JP↔EN gap 60px → 24px (2em at EN size)
  */
 html.bb-mobile-web #js-quiz .bp-quiz-question,
@@ -255,7 +255,7 @@ html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
   font-size: 0.75rem !important;
-  line-height: calc(40 / 30) !important;
+  line-height: calc((30 + 40) / 30) !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-top: calc(60 / 30 * 1em) !important;
