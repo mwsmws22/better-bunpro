@@ -744,6 +744,11 @@ html.bb-mobile-web #js-quiz .bp-quiz-question * {
   font-size: 1.23rem !important;
   line-height: 1.55rem !important;
 }
+/* The blank's underline sits on the line box. The sentence line-height puts it through the kana. */
+html.bb-mobile-web #js-quiz .bp-quiz-question button,
+html.bb-mobile-web #js-quiz .bp-quiz-question button * {
+  line-height: 2.125rem !important;
+}
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
 html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
   font-size: 46% !important;
