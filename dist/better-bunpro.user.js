@@ -732,26 +732,20 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   margin-top: auto;
 }
 /**
- * Exact Bunpro mobile quiz type (<640px) from bunpro.jp CSS (APK 0.5.16
- * embeds the same class names / design tokens; native Flutter mirrors them):
- *   .bp-quiz-question  font-size 1.1875rem; line-height 2.125rem
- *   .bp-quiz-trans     font-size .75rem;    line-height .875rem
- *   rt                 font-size 46%;       line-height 1
- * Flash terms ship as text-quiz-desktop (2.5rem) on phone web — cap to the
- * cloze question size so they match the app’s mobile prompt.
+ * Cloze type matched to the native app. Flash terms stay on Bunpro's
+ * 1.1875rem cap. Furigana stays at 46% so the sentence size does not enlarge it.
  */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
   font-size: 1.1875rem !important;
   line-height: 2.125rem !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question,
-html.bb-mobile-web #js-quiz .bp-quiz-question > .text-center,
-html.bb-mobile-web #js-quiz .bp-quiz-question .bp-ddw,
-html.bb-mobile-web #js-quiz .bp-quiz-question ruby {
-  font-size: 1.1875rem !important;
-  line-height: 2.125rem !important;
+html.bb-mobile-web #js-quiz .bp-quiz-question * {
+  font-size: 1.23rem !important;
+  line-height: 1.55rem !important;
 }
-html.bb-mobile-web #js-quiz .bp-quiz-question rt {
+html.bb-mobile-web #js-quiz .bp-quiz-question rt,
+html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
   font-size: 46% !important;
   line-height: 1 !important;
 }
@@ -762,8 +756,8 @@ html.bb-mobile-web #js-quiz .bp-quiz-tense {
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
-  font-size: 0.75rem !important;
-  line-height: 0.875rem !important;
+  font-size: 1.06rem !important;
+  line-height: 1.86rem !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-top: 0;
