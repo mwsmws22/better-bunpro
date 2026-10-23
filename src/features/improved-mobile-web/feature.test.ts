@@ -48,6 +48,30 @@ describe('improvedMobileWebFeature', () => {
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('');
   });
 
+  it('drops answer focus when the hint button is pressed', () => {
+    document.body.innerHTML = `
+      <input id="js-manual-input" />
+      <button title="Toggle the hint level"><span>Hint</span></button>
+    `;
+    improvedMobileWebFeature.start();
+    const input = document.getElementById('js-manual-input') as HTMLInputElement;
+    const button = document.querySelector('button') as HTMLButtonElement;
+    let focusedDuringClick = false;
+    button.addEventListener('click', () => {
+      input.focus();
+      focusedDuringClick = document.activeElement === input;
+    });
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    const span = document.querySelector('button span')!;
+    span.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(focusedDuringClick).toBe(false);
+    expect(document.activeElement).not.toBe(input);
+  });
+
   it('does not mark html on a wide desktop viewport', () => {
     vi.stubGlobal('innerWidth', 1280);
     vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0' });

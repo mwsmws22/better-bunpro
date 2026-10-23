@@ -1,5 +1,6 @@
 import { injectStyles } from '../../styles';
 import type { Feature } from '../registry';
+import { startHintKeyboardDismiss, stopHintKeyboardDismiss } from './hint-keyboard';
 import { startMobileGate, stopMobileGate } from './mobile-gate';
 import { startVisualViewportSync, stopVisualViewportSync } from './visual-viewport';
 
@@ -20,6 +21,7 @@ export const improvedMobileWebFeature: Feature = {
 
   start() {
     injectStyles();
+    startHintKeyboardDismiss();
     startMobileGate((active) => {
       if (active) {
         startVisualViewportSync();
@@ -30,6 +32,7 @@ export const improvedMobileWebFeature: Feature = {
   },
 
   stop() {
+    stopHintKeyboardDismiss();
     stopMobileGate();
     stopVisualViewportSync();
   },

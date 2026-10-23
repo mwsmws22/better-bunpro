@@ -759,8 +759,8 @@ html.bb-mobile-web #js-quiz .bp-quiz-tense {
   line-height: 0.875rem !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
-html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
-html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans * {
   font-size: 1.06rem !important;
   line-height: 1.86rem !important;
 }
@@ -820,12 +820,14 @@ html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
   font-size: 0.75rem !important;
   line-height: 0.875rem !important;
 }
-/* Invisible Bunpro spacers / empty hint rows bias the prompt upward — drop them. */
+/* Invisible Bunpro spacers bias the prompt upward — drop them.
+   A hint row stays up while one note is still hidden, so Bunpro can show
+   the Japanese note and the English note on separate taps. */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
   display: none !important;
 }
-html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:has(.opacity-0),
-html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> p.opacity-0):not(:has(> :not(p))) {
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:not(:has(> :not(.opacity-0))),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:not(:has(> :not(p.opacity-0))) {
   display: none !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {

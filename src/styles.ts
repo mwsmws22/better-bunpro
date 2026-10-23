@@ -215,7 +215,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   display: flex !important;
   flex-direction: column !important;
   align-items: center;
-  justify-content: flex-start;
+  /* Visible prompt pieces (sentence, translation, notes) center as one group.
+     Cards that set their own auto margins still center themselves. */
+  justify-content: center;
   /* Bunpro quiz section uses grid gap-6 (6px); flex replaces grid so restore it. */
   gap: 0.375rem !important;
 }
@@ -224,7 +226,6 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
  * above/below the prompt group; keep kanji + revealed answer meanings flush
  * (do not put margin-bottom:auto on the term when the answer <p> is visible).
  */
-html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question,
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
   margin-top: auto;
 }
@@ -239,9 +240,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
 html.bb-mobile-web #js-quiz .bp-quiz-question,
 html.bb-mobile-web #js-quiz .bp-quiz-question * {
   font-size: 1.23rem !important;
-  line-height: 1.55rem !important;
+  line-height: 2.125rem !important;
 }
-/* The blank's underline sits on the line box. The sentence line-height puts it through the kana. */
+/* Underline is before:bottom-4 on the blank. This line box keeps it under the kana. */
 html.bb-mobile-web #js-quiz .bp-quiz-question button,
 html.bb-mobile-web #js-quiz .bp-quiz-question button * {
   line-height: 2.125rem !important;
@@ -256,15 +257,31 @@ html.bb-mobile-web #js-quiz .bp-quiz-tense {
   line-height: 0.875rem !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
-html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint),
-html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans:not(.bp-quiz-trans--hint) * {
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans * {
   font-size: 1.06rem !important;
   line-height: 1.86rem !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-top: 0;
-  margin-bottom: auto;
-  min-height: 0.875rem; /* --text-extra-small--line-height */
+  margin-bottom: 0;
+  min-height: 0;
+}
+/* A hidden hint step must not leave a gap. The word hint leaves Bunpro's
+   absolute overlay so it joins the centered stack. */
+html.bb-mobile-web #js-quiz .bp-quiz-trans.opacity-0,
+html.bb-mobile-web #js-quiz .bp-quiz-trans.invisible {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans--hint {
+  position: static !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:not(:has(.bp-quiz-trans:not(.opacity-0))) {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(.bp-quiz-trans:not(.opacity-0)) {
+  margin-top: 1.15rem;
+  text-align: center;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[data-bb-study-question]),
@@ -317,13 +334,33 @@ html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
   font-size: 0.75rem !important;
   line-height: 0.875rem !important;
 }
-/* Invisible Bunpro spacers / empty hint rows bias the prompt upward — drop them. */
+/* Invisible Bunpro spacers bias the prompt upward — drop them.
+   A hint row stays up while one note is still hidden, so Bunpro can show
+   the Japanese note and the English note on separate taps. */
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
   display: none !important;
 }
-html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:has(.opacity-0),
-html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> p.opacity-0):not(:has(> :not(p))) {
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:not(:has(> :not(.opacity-0))),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:not(:has(> :not(p.opacity-0))) {
   display: none !important;
+}
+/* A note that Bunpro has not revealed yet must not leave a blank line. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) {
+  margin-top: 0.7rem;
+  text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw * {
+  font-size: 0.95rem !important;
+  line-height: 1.6rem !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child * {
+  font-size: 0.84rem !important;
+  line-height: 1.45rem !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
   flex: 0 0 auto;
