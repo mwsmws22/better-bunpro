@@ -1,7 +1,8 @@
 import { injectStyles } from '../../styles';
 import type { Feature } from '../registry';
-import { startHintKeyboardDismiss, stopHintKeyboardDismiss } from './hint-keyboard';
+import { startHintKeyboardHold, stopHintKeyboardHold } from './hint-keyboard';
 import { startMobileGate, stopMobileGate } from './mobile-gate';
+import { startPromptScroll, stopPromptScroll } from './prompt-scroll';
 import { startVisualViewportSync, stopVisualViewportSync } from './visual-viewport';
 
 /**
@@ -21,7 +22,8 @@ export const improvedMobileWebFeature: Feature = {
 
   start() {
     injectStyles();
-    startHintKeyboardDismiss();
+    startHintKeyboardHold();
+    startPromptScroll();
     startMobileGate((active) => {
       if (active) {
         startVisualViewportSync();
@@ -32,7 +34,8 @@ export const improvedMobileWebFeature: Feature = {
   },
 
   stop() {
-    stopHintKeyboardDismiss();
+    stopHintKeyboardHold();
+    stopPromptScroll();
     stopMobileGate();
     stopVisualViewportSync();
   },

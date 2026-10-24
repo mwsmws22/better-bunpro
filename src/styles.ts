@@ -211,15 +211,35 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
   display: flex !important;
   flex-direction: column !important;
   align-items: center;
-  /* Visible prompt pieces (sentence, translation, notes) center as one group.
-     Cards that set their own auto margins still center themselves. */
-  justify-content: center;
+  /* Center the prompt when it fits. When the notes overflow the space above
+     the keyboard, pin to the top so the sentence stays put and the rest scrolls. */
+  justify-content: safe center;
   /* Bunpro quiz section uses grid gap-6 (6px); flex replaces grid so restore it. */
   gap: 0.375rem !important;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  scrollbar-color: rgb(255 255 255 / 0.45) transparent;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar {
+  width: 0.25rem;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0.25rem;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.45);
 }
 /**
  * Optically center the prompt in the section. Auto margins eat free space
