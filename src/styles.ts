@@ -54,9 +54,7 @@ const CSS = `
   min-width: 0;
 }
 .bb-feature-about-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
+  display: block;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -64,15 +62,52 @@ const CSS = `
 .bb-feature-about-summary::-webkit-details-marker {
   display: none;
 }
+.bb-feature-about-summary::marker {
+  content: '';
+}
+.bb-feature-about-summary > span {
+  display: inline;
+}
+.bb-feature-title-tail {
+  white-space: nowrap;
+}
 .bb-feature-caret {
-  flex-shrink: 0;
+  display: inline-block;
   width: 1.125em;
   height: 1.125em;
+  margin-inline-start: 0.15em;
+  vertical-align: -0.2em;
   color: rgb(var(--c-primary-accent) / 1);
   transition: transform 120ms ease;
 }
-.bb-feature-about[open] > .bb-feature-about-summary > .bb-feature-caret {
+/* Phone width: the card uses the screen and scrolls inside the visible
+   viewport instead of floating as a narrow desktop dialog. */
+html.bb-mobile-web #bb-settings-panel {
+  padding: 0.75rem 0.5rem;
+}
+html.bb-mobile-web .bb-panel-card {
+  width: 100%;
+  max-height: calc(var(--bb-vv-height, 100dvh) - 1.5rem);
+}
+html.bb-mobile-web .bb-panel-card > header,
+html.bb-mobile-web .bb-panel-card > div {
+  padding: 0.85rem 0.9rem;
+}
+html.bb-mobile-web .bb-panel-card ul {
+  gap: 0.85rem;
+}
+html.bb-mobile-web .bb-panel-card li {
+  gap: 0.75rem;
+}
+html.bb-mobile-web .bb-feature-about-summary {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.bb-feature-about[open] .bb-feature-caret {
   transform: rotate(90deg);
+}
+.bb-panel-card li:has(.bb-feature-about[open]) {
+  align-items: flex-start;
 }
 .bb-feature-desc {
   margin-top: 0.5rem;
@@ -262,10 +297,18 @@ html.bb-mobile-web #js-quiz .bp-quiz-question * {
   font-size: 1.23rem !important;
   line-height: 2.125rem !important;
 }
-/* Underline is before:bottom-4 on the blank. This line box keeps it under the kana. */
+/* Underline is before:bottom-4 on the blank. This line box keeps it under the kana.
+   Empty, the line sits up on the sentence. Once a kana is typed, it drops so
+   the glyph clears the line. The line box itself stays put. */
 html.bb-mobile-web #js-quiz .bp-quiz-question button,
 html.bb-mobile-web #js-quiz .bp-quiz-question button * {
   line-height: 2.125rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button::before {
+  bottom: 0.4em !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before {
+  bottom: 0 !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
 html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
@@ -376,8 +419,16 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   display: none !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) {
-  margin-top: 0.15rem;
+  /* Match the gap under the English to the gap between the two notes.
+     Furigana sits in the note, so this gap is measured above the reading. */
+  margin-top: -0.125rem;
   text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child > svg {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  padding: 0 !important;
+  vertical-align: baseline !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw,
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw * {

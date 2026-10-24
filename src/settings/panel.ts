@@ -100,18 +100,24 @@ function buildFeatureRow(feature: Feature): HTMLElement {
     { class: 'bb-feature-desc text-small text-tertiary-fg' },
     descriptionNodes(feature.description),
   );
-  const caret = svgIcon('bb-feature-caret', CARET_SHAPES);
-  const summary = element('summary', { class: 'bb-feature-about-summary font-bold' }, [
-    element('span', {}, [feature.title]),
-    caret,
-  ]);
+  const summary = buildSummary(feature.title);
   const copy = feature.credit ? [description, buildCredit(feature.credit)] : [description];
   const about = element('details', { class: 'bb-feature-about grow' }, [summary, ...copy]);
 
-  return element('li', { class: 'flex items-start justify-between gap-16' }, [
+  return element('li', { class: 'flex items-center justify-between gap-16' }, [
     about,
     buildSwitch(feature),
   ]);
+}
+
+/** Last word and chevron stay on one line, so the chevron never wraps alone. */
+function buildSummary(title: string): HTMLElement {
+  const caret = svgIcon('bb-feature-caret', CARET_SHAPES);
+  const words = title.split(' ');
+  const lastWord = words.pop() ?? '';
+  const lead = words.length > 0 ? `${words.join(' ')} ` : '';
+  const tail = element('span', { class: 'bb-feature-title-tail' }, [lastWord, caret]);
+  return element('summary', { class: 'bb-feature-about-summary font-bold' }, lead ? [lead, tail] : [tail]);
 }
 
 function buildCredit(credit: FeatureCredit): HTMLElement {

@@ -8,8 +8,9 @@ alwaysApply: true
 When the user asks to open / bring up MCP Firefox, do **only** this:
 
 1. **Vite up** — if `127.0.0.1:5173` is down, start `npm run dev` once.
-2. **Firefox fresh** — `./scripts/firefox-mcp` once (**no** `--install`).  
-   Symlink: `~/bin/firefox-mcp`. Opens Bunpro only.
+2. **Firefox** — `./scripts/firefox-mcp` once (**no** `--install`).  
+   Symlink: `~/bin/firefox-mcp`. Opens Bunpro only. If that profile is  
+   already up, the script leaves it. The window is detached from this shell.
 3. **Close leftover blanks** — `list_pages` once; close every `about:blank`.  
    Keep the Bunpro reviews tab.
 4. **Probe the bridge** — on Bunpro, read  
