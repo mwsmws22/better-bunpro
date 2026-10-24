@@ -279,13 +279,20 @@ html.bb-mobile-web #js-quiz .bp-quiz-tense {
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans,
 html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans * {
-  font-size: 1.06rem !important;
-  line-height: 1.86rem !important;
+  font-size: 0.9rem !important;
+  line-height: 1.58rem !important;
+}
+/* Keep the sentence, English, and notes at their line spacing when the fourth
+   hint overflows the screen. A shrinkable English block lets the notes slide
+   up into it. The section scrolls instead. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid {
+  flex-shrink: 0;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
   margin-top: 0;
   margin-bottom: 0;
-  min-height: 0;
 }
 /* A hidden hint step must not leave a gap. The word hint leaves Bunpro's
    absolute overlay so it joins the centered stack. */
@@ -300,7 +307,7 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   display: none !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(.bp-quiz-trans:not(.opacity-0)) {
-  margin-top: 1.15rem;
+  margin-top: 0.2rem;
   text-align: center;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
@@ -369,7 +376,7 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   display: none !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) {
-  margin-top: 0.7rem;
+  margin-top: 0.15rem;
   text-align: center;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw,
@@ -381,6 +388,16 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child * {
   font-size: 0.84rem !important;
   line-height: 1.45rem !important;
+}
+/* The note size rules match every descendant, which blows readings up to the
+   kanji size and stretches each character to the reading's width. Keep
+   furigana at the same proportion as the sentence. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw .hide-furigana,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child .hide-furigana {
+  font-size: 46% !important;
+  line-height: 1 !important;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
   flex: 0 0 auto;
