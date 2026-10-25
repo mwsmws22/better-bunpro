@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.9
+// @version      0.10.10
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -718,22 +718,23 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-/* The document stays one pixel taller than the viewport. A locked root
-   (overflow: hidden) swallows a pull from the top of the screen, so the
-   browser cannot refresh. The quiz shell itself stays pinned. */
+/* Pin the shell to the visible viewport. Letting the root grow with the
+   layout viewport, and adding a 1px body margin so it can scroll, turns into
+   an empty region under the answer bar once the keyboard overlays the page.
+   A pull down from the top of the prompt reloads the page instead. */
 html.bb-mobile-web {
-  height: auto;
-  max-height: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
-}
-html.bb-mobile-web body {
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
   overflow: hidden;
-  margin-bottom: 1px;
-  position: relative;
+}
+html.bb-mobile-web body {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  height: var(--bb-vv-height, 100dvh);
+  max-height: var(--bb-vv-height, 100dvh);
+  overflow: hidden;
+  margin: 0;
   top: var(--bb-vv-offset-top, 0px);
 }
 html.bb-mobile-web #js-page-top {
@@ -781,7 +782,7 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-y: auto;
   overflow-anchor: none;
   /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
-     A pull past the top chains to the document so the browser can refresh. */
+     A pull down from the top reloads the page. The root does not scroll. */
   touch-action: pan-y;
   overscroll-behavior-y: auto;
   scrollbar-width: thin;
@@ -1329,7 +1330,7 @@ input.bb-correct-guess {
 	var SLOT_ID = "bb-add-synonym";
 	var SYNONYM_KEY = "s";
 	var PLUS_SHAPES = "<path d=\"M12 5v14M5 12h14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/>";
-	var stopWatchingQuiz$4 = null;
+	var stopWatchingQuiz$5 = null;
 	var stopWatchingRemounts$1 = null;
 	var standInQueuedFor = null;
 	var addSynonymFeature = {
@@ -1339,14 +1340,14 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$4 = watchQuizState(syncButton);
+			stopWatchingQuiz$5 = watchQuizState(syncButton);
 			stopWatchingRemounts$1 = watchBodyRemounts(() => syncButton(readQuizState()));
 			window.addEventListener("keydown", onKeyDown$2, true);
 		},
 		stop() {
 			window.removeEventListener("keydown", onKeyDown$2, true);
-			stopWatchingQuiz$4?.();
-			stopWatchingQuiz$4 = null;
+			stopWatchingQuiz$5?.();
+			stopWatchingQuiz$5 = null;
 			stopWatchingRemounts$1?.();
 			stopWatchingRemounts$1 = null;
 			removeButton();
@@ -1455,7 +1456,7 @@ input.bb-correct-guess {
 		input.setSelectionRange(caret, caret);
 	}
 	var EDIT_KEY = "ArrowLeft";
-	var stopWatchingQuiz$3 = null;
+	var stopWatchingQuiz$4 = null;
 	var pending$1 = null;
 	var restoreTimer = null;
 	var editOnLeftFeature = {
@@ -1465,13 +1466,13 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$3 = watchQuizState(onQuizStateChange$3);
+			stopWatchingQuiz$4 = watchQuizState(onQuizStateChange$3);
 			window.addEventListener("keydown", onKeyDown$1, true);
 		},
 		stop() {
 			window.removeEventListener("keydown", onKeyDown$1, true);
-			stopWatchingQuiz$3?.();
-			stopWatchingQuiz$3 = null;
+			stopWatchingQuiz$4?.();
+			stopWatchingQuiz$4 = null;
 			forgetPending();
 		}
 	};
@@ -1830,7 +1831,7 @@ input.bb-correct-guess {
 		if (!term || !state.isRevealing || !state.isCorrect || hasNativeSentence) return null;
 		return term;
 	}
-	var stopWatchingQuiz$2 = null;
+	var stopWatchingQuiz$3 = null;
 	var exampleSentenceFeature = {
 		id: "example-sentence",
 		title: "Show unverified example sentences for A5 vocab",
@@ -1838,11 +1839,11 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$2 = watchQuizState(onQuizStateChange$2);
+			stopWatchingQuiz$3 = watchQuizState(onQuizStateChange$2);
 		},
 		stop() {
-			stopWatchingQuiz$2?.();
-			stopWatchingQuiz$2 = null;
+			stopWatchingQuiz$3?.();
+			stopWatchingQuiz$3 = null;
 			clearSentence();
 		}
 	};
@@ -2805,7 +2806,7 @@ input.bb-correct-guess {
 			type: "vocab"
 		} : null;
 	}
-	var stopWatchingQuiz$1 = null;
+	var stopWatchingQuiz$2 = null;
 	var stopWatchingRemounts = null;
 	var shownFor = null;
 	var shownAnswerOrigin = null;
@@ -2824,7 +2825,7 @@ input.bb-correct-guess {
 			startReplacingAudio();
 			setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
 			setTermAutoplayPlayer(playAnswerBarRecording);
-			stopWatchingQuiz$1 = watchQuizState(onQuizStateChange$1);
+			stopWatchingQuiz$2 = watchQuizState(onQuizStateChange$1);
 			stopWatchingRemounts = watchBodyRemounts(() => {
 				const state = readQuizState();
 				const review = state.reviewable ? reviewKey(state) : null;
@@ -2854,8 +2855,8 @@ input.bb-correct-guess {
 		stop() {
 			stopWatchingRemounts?.();
 			stopWatchingRemounts = null;
-			stopWatchingQuiz$1?.();
-			stopWatchingQuiz$1 = null;
+			stopWatchingQuiz$2?.();
+			stopWatchingQuiz$2 = null;
 			stopReplacingAudio();
 			forgetReplacements();
 			clearAudioSourceIndicator();
@@ -3077,38 +3078,41 @@ input.bb-correct-guess {
 	var KEYBOARD_COVER_GAP_PX = 120;
 	var PHONE_SCREEN_MAX_PX = 1e3;
 	var PORTRAIT_MIN_RATIO = 1.65;
-	var EMPTY_SUBMIT_FALLBACK_MS = 700;
+	var SUBMIT_HOLD_FALLBACK_MS = 700;
 	var onHintPointerDown = null;
 	var onHintClick = null;
 	var onAnswerKeyDown = null;
-	var onEmptySubmitPointerUp = null;
-	var onEmptySubmitPointerCancel = null;
+	var onSubmitPointerUp = null;
+	var onSubmitPointerCancel = null;
 	var onFrameResize = null;
 	var releaseFocusHold = null;
-	var emptySubmitHolding = false;
-	var emptySubmitHold = null;
-	var emptySubmitFallback = null;
+	var submitHolding = false;
+	var submitHold = null;
+	var submitHoldFallback = null;
+	var stopWatchingQuiz$1 = null;
+	var stopWatchingInput = null;
+	var openedReview = null;
 	var tallestFrame = 0;
 	function startHintKeyboardHold() {
 		if (onHintPointerDown) return;
 		onHintPointerDown = (event) => {
 			if (holdHintKeyboard(event.target)) return;
-			holdEmptySubmitKeyboard(event.target);
+			holdSubmitKeyboard(event.target);
 		};
 		onHintClick = (event) => {
 			if (isMobileHint(event.target)) {
 				releaseSoon();
 				return;
 			}
-			releaseEmptySubmitAfterClick(event.target);
+			releaseSubmitHoldAfterClick(event.target);
 		};
-		onAnswerKeyDown = holdEmptySubmitOnEnter;
-		onEmptySubmitPointerUp = (event) => {
-			if (!emptySubmitHolding || isEmptyAnswerSubmit(event.target)) return;
-			releaseEmptySubmitHold();
+		onAnswerKeyDown = holdSubmitOnEnter;
+		onSubmitPointerUp = (event) => {
+			if (!submitHolding || isSubmitControl(event.target)) return;
+			releaseSubmitHold();
 		};
-		onEmptySubmitPointerCancel = () => {
-			releaseEmptySubmitHold();
+		onSubmitPointerCancel = () => {
+			releaseSubmitHold();
 		};
 		onFrameResize = () => {
 			tallestFrame = Math.max(tallestFrame, pageHeight());
@@ -3116,10 +3120,17 @@ input.bb-correct-guess {
 		onFrameResize();
 		window.addEventListener("resize", onFrameResize);
 		document.addEventListener("pointerdown", onHintPointerDown, true);
-		document.addEventListener("pointerup", onEmptySubmitPointerUp, true);
-		document.addEventListener("pointercancel", onEmptySubmitPointerCancel, true);
+		document.addEventListener("pointerup", onSubmitPointerUp, true);
+		document.addEventListener("pointercancel", onSubmitPointerCancel, true);
 		document.addEventListener("click", onHintClick);
 		document.addEventListener("keydown", onAnswerKeyDown, true);
+		stopWatchingQuiz$1 = watchQuizState(() => {
+			openAnswerKeyboardForReview();
+		});
+		stopWatchingInput = watchBodyRemounts(() => {
+			openAnswerKeyboardForReview();
+		});
+		openAnswerKeyboardForReview();
 	}
 	function stopHintKeyboardHold() {
 		if (onHintPointerDown) {
@@ -3134,17 +3145,22 @@ input.bb-correct-guess {
 			document.removeEventListener("keydown", onAnswerKeyDown, true);
 			onAnswerKeyDown = null;
 		}
-		if (onEmptySubmitPointerUp) {
-			document.removeEventListener("pointerup", onEmptySubmitPointerUp, true);
-			onEmptySubmitPointerUp = null;
+		if (onSubmitPointerUp) {
+			document.removeEventListener("pointerup", onSubmitPointerUp, true);
+			onSubmitPointerUp = null;
 		}
-		if (onEmptySubmitPointerCancel) {
-			document.removeEventListener("pointercancel", onEmptySubmitPointerCancel, true);
-			onEmptySubmitPointerCancel = null;
+		if (onSubmitPointerCancel) {
+			document.removeEventListener("pointercancel", onSubmitPointerCancel, true);
+			onSubmitPointerCancel = null;
 		}
-		clearEmptySubmitFallback();
-		emptySubmitHolding = false;
-		emptySubmitHold = null;
+		stopWatchingQuiz$1?.();
+		stopWatchingQuiz$1 = null;
+		stopWatchingInput?.();
+		stopWatchingInput = null;
+		openedReview = null;
+		clearSubmitHoldFallback();
+		submitHolding = false;
+		submitHold = null;
 		releaseFocusHold?.();
 		releaseFocusHold = null;
 		if (onFrameResize) {
@@ -3227,54 +3243,61 @@ input.bb-correct-guess {
 	function releaseSoon() {
 		setTimeout(() => releaseFocusHold?.(), 0);
 	}
-	function holdEmptySubmitKeyboard(target) {
-		if (!isEmptyAnswerSubmit(target)) return;
+	function holdSubmitKeyboard(target) {
+		if (!isSubmitControl(target)) return;
 		if (!retainAnswerKeyboard()) return;
-		emptySubmitHolding = true;
-		emptySubmitHold = releaseFocusHold;
-		clearEmptySubmitFallback();
-		emptySubmitFallback = setTimeout(() => {
-			emptySubmitFallback = null;
-			releaseEmptySubmitHold();
-		}, EMPTY_SUBMIT_FALLBACK_MS);
+		submitHolding = true;
+		submitHold = releaseFocusHold;
+		clearSubmitHoldFallback();
+		submitHoldFallback = setTimeout(() => {
+			submitHoldFallback = null;
+			releaseSubmitHold();
+		}, SUBMIT_HOLD_FALLBACK_MS);
 	}
-	function holdEmptySubmitOnEnter(event) {
+	function holdSubmitOnEnter(event) {
 		if (event.key !== "Enter" || event.repeat) return;
 		const input = findAnswerInput();
-		if (!input || document.activeElement !== input || input.value.trim() !== "") return;
+		if (!input || document.activeElement !== input) return;
 		if (!retainAnswerKeyboard()) return;
 		releaseSoon();
 	}
-	function releaseEmptySubmitAfterClick(target) {
-		if (!emptySubmitHolding || !isSubmitControl(target)) return;
-		const hold = emptySubmitHold;
-		emptySubmitHolding = false;
-		emptySubmitHold = null;
-		clearEmptySubmitFallback();
+	function releaseSubmitHoldAfterClick(target) {
+		if (!submitHolding || !isSubmitControl(target)) return;
+		const hold = submitHold;
+		submitHolding = false;
+		submitHold = null;
+		clearSubmitHoldFallback();
 		setTimeout(() => {
 			if (releaseFocusHold === hold) releaseAnswerKeyboard();
 		}, 0);
 	}
-	function releaseEmptySubmitHold() {
-		if (!emptySubmitHolding) return;
-		const hold = emptySubmitHold;
-		emptySubmitHolding = false;
-		emptySubmitHold = null;
-		clearEmptySubmitFallback();
+	function releaseSubmitHold() {
+		if (!submitHolding) return;
+		const hold = submitHold;
+		submitHolding = false;
+		submitHold = null;
+		clearSubmitHoldFallback();
 		if (hold !== null && releaseFocusHold === hold) releaseAnswerKeyboard();
 	}
-	function clearEmptySubmitFallback() {
-		if (emptySubmitFallback === null) return;
-		clearTimeout(emptySubmitFallback);
-		emptySubmitFallback = null;
+	function clearSubmitHoldFallback() {
+		if (submitHoldFallback === null) return;
+		clearTimeout(submitHoldFallback);
+		submitHoldFallback = null;
 	}
 	function isSubmitControl(target) {
 		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && findSubmitButton()?.contains(target) === true;
 	}
-	function isEmptyAnswerSubmit(target) {
-		if (!isSubmitControl(target)) return false;
+	function openAnswerKeyboardForReview() {
+		if (!document.documentElement.classList.contains("bb-mobile-web")) return;
+		const state = readQuizState();
+		if (state.inputMode === "flashcard") return;
+		const key = reviewKey(state);
+		if (!key || key === openedReview) return;
 		const input = findAnswerInput();
-		return input !== null && input.value.trim() === "";
+		if (!input || input.disabled) return;
+		openedReview = key;
+		holdAnswerFocused(input);
+		releaseAnswerKeyboard();
 	}
 	function retainAnswerKeyboard() {
 		if (!document.documentElement.classList.contains("bb-mobile-web")) return false;
@@ -3290,6 +3313,10 @@ input.bb-correct-guess {
 	var PROMPT_SCROLLING_CLASS = "bb-prompt-scrolling";
 	var SCROLLBAR_HOLD_MS = 700;
 	var DRAG_START_PX = 5;
+	var PULL_REFRESH_PX = 80;
+	var reviewPage = { reload() {
+		location.reload();
+	} };
 	var onScroll = null;
 	var onPointerDown = null;
 	var onPointerMove = null;
@@ -3299,6 +3326,7 @@ input.bb-correct-guess {
 	var keyboardHoldPointer = null;
 	var releaseTimer = null;
 	var releaseOnClick = null;
+	var pull = null;
 	function startPromptScroll() {
 		if (onScroll) return;
 		onScroll = (event) => {
@@ -3334,6 +3362,7 @@ input.bb-correct-guess {
 			onPointerUp = null;
 		}
 		drag = null;
+		pull = null;
 		clearKeyboardRelease();
 		releaseHeldKeyboard();
 		clearHideTimer();
@@ -3344,6 +3373,7 @@ input.bb-correct-guess {
 		const section = findQuestionSection();
 		if (!section || !dragStartsOnPrompt(event.target, section)) return;
 		clearKeyboardRelease();
+		rememberPull(event, section);
 		if (retainAnswerKeyboard()) {
 			keyboardHoldPointer = event.pointerId;
 			if (event.pointerType === "touch") event.preventDefault();
@@ -3375,8 +3405,25 @@ input.bb-correct-guess {
 		drag.section.scrollTop -= delta;
 	}
 	function endPromptDrag(event) {
+		refreshIfPulled(event);
 		if (drag?.pointerId === event.pointerId) drag = null;
 		holdKeyboardThroughClick(event.pointerId);
+	}
+	function rememberPull(event, section) {
+		if (event.pointerType !== "touch" || section.scrollTop > 0) return;
+		pull = {
+			pointerId: event.pointerId,
+			startY: event.clientY,
+			section
+		};
+	}
+	function refreshIfPulled(event) {
+		if (!pull || pull.pointerId !== event.pointerId) return;
+		const { startY, section } = pull;
+		pull = null;
+		if (event.type === "pointercancel" || section.scrollTop > 0) return;
+		if (event.clientY - startY < PULL_REFRESH_PX) return;
+		reviewPage.reload();
 	}
 	function holdKeyboardThroughClick(pointerId) {
 		if (keyboardHoldPointer !== pointerId) return;
@@ -3474,12 +3521,12 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			startHintKeyboardHold();
-			startPromptScroll();
 			startMobileGate((active) => {
 				if (active) startVisualViewportSync();
 				else stopVisualViewportSync();
 			});
+			startHintKeyboardHold();
+			startPromptScroll();
 		},
 		stop() {
 			stopHintKeyboardHold();
@@ -3600,7 +3647,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.9";
+	var version = "0.10.10";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
