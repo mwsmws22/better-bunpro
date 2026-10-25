@@ -1,7 +1,7 @@
 import { findQuestionSection } from '../../bunpro/quiz-dom';
-import { watchBodyRemounts } from '../../dom/remount';
 import { releaseAnswerKeyboard, retainAnswerKeyboard } from './hint-keyboard';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
+import { beginPull, cancelPull, finishPull, followPull } from './pull-refresh';
 
 /** On `<html>` while the prompt section is scrolling, so its scrollbar can show. */
 export const PROMPT_SCROLLING_CLASS = 'bb-prompt-scrolling';
@@ -9,34 +9,15 @@ export const PROMPT_SCROLLING_CLASS = 'bb-prompt-scrolling';
 const SCROLLBAR_HOLD_MS = 700;
 /** Ignore a tap that only jitters. The simulator uses the same threshold. */
 const DRAG_START_PX = 5;
-/** A short tug at the top is a scroll, not a refresh. */
-const PULL_REFRESH_PX = 80;
-
-/** The document does not scroll, so a pull from the top reloads through here. */
-export const reviewPage = {
-  reload(): void {
-    location.reload();
-  },
-};
 
 let onScroll: ((event: Event) => void) | null = null;
 let onPointerDown: ((event: PointerEvent) => void) | null = null;
 let onPointerMove: ((event: PointerEvent) => void) | null = null;
 let onPointerUp: ((event: PointerEvent) => void) | null = null;
+let onTouchStart: ((event: TouchEvent) => void) | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let drag: PromptDrag | null = null;
 let keyboardHoldPointer: number | null = null;
-let releaseTimer: ReturnType<typeof setTimeout> | null = null;
-let releaseOnClick: (() => void) | null = null;
-let pull: PromptPull | null = null;
-let stopWatchingPrompts: (() => void) | null = null;
-let onViewportResize: (() => void) | null = null;
-
-interface PromptPull {
-  pointerId: number;
-  startY: number;
-  section: HTMLElement;
-}
 
 interface PromptDrag {
   pointerId: number;
@@ -67,11 +48,11 @@ export function startPromptScroll(): void {
   document.addEventListener('pointermove', onPointerMove, true);
   document.addEventListener('pointerup', onPointerUp, true);
   document.addEventListener('pointercancel', onPointerUp, true);
-  onViewportResize = resetPromptScrollIfFitting;
-  window.addEventListener('resize', onViewportResize);
-  window.visualViewport?.addEventListener('resize', onViewportResize);
-  stopWatchingPrompts = watchBodyRemounts(resetPromptScrollIfFitting);
-  resetPromptScrollIfFitting();
+  onTouchStart = startPromptPull;
+  document.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+  document.addEventListener('touchmove', followPull, { capture: true, passive: true });
+  document.addEventListener('touchend', finishPull, { capture: true, passive: true });
+  document.addEventListener('touchcancel', finishPull, { capture: true, passive: true });
 }
 
 export function stopPromptScroll(): void {
@@ -92,26 +73,18 @@ export function stopPromptScroll(): void {
     document.removeEventListener('pointercancel', onPointerUp, true);
     onPointerUp = null;
   }
-  if (onViewportResize) {
-    window.removeEventListener('resize', onViewportResize);
-    window.visualViewport?.removeEventListener('resize', onViewportResize);
-    onViewportResize = null;
+  if (onTouchStart) {
+    document.removeEventListener('touchstart', onTouchStart, true);
+    document.removeEventListener('touchmove', followPull, true);
+    document.removeEventListener('touchend', finishPull, true);
+    document.removeEventListener('touchcancel', finishPull, true);
+    onTouchStart = null;
   }
-  stopWatchingPrompts?.();
-  stopWatchingPrompts = null;
+  cancelPull();
   drag = null;
-  pull = null;
-  clearKeyboardRelease();
   releaseHeldKeyboard();
   clearHideTimer();
   document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
-}
-
-function resetPromptScrollIfFitting(): void {
-  const section = findQuestionSection();
-  if (section && section.scrollHeight <= section.clientHeight) {
-    section.scrollTop = 0;
-  }
 }
 
 /**
@@ -125,11 +98,9 @@ function startPromptDrag(event: PointerEvent): void {
     return;
   }
   const section = findQuestionSection();
-  if (!section || !dragStartsOnPrompt(event.target, section)) {
+  if (!section || !startsOnPrompt(event.target, [section])) {
     return;
   }
-  clearKeyboardRelease();
-  rememberPull(event, section);
   if (retainAnswerKeyboard()) {
     keyboardHoldPointer = event.pointerId;
     if (event.pointerType === 'touch') {
@@ -157,7 +128,7 @@ function movePromptDrag(event: PointerEvent): void {
   }
   if (event.buttons === 0) {
     drag = null;
-    holdKeyboardThroughClick(event.pointerId);
+    releaseHeldKeyboard(event.pointerId);
     return;
   }
   if (!drag.active) {
@@ -173,73 +144,26 @@ function movePromptDrag(event: PointerEvent): void {
 }
 
 function endPromptDrag(event: PointerEvent): void {
-  refreshIfPulled(event);
   if (drag?.pointerId === event.pointerId) {
     drag = null;
   }
-  holdKeyboardThroughClick(event.pointerId);
+  releaseHeldKeyboard(event.pointerId);
 }
 
-/**
- * The root no longer scrolls, so the browser cannot refresh from an overscroll.
- * A touch that starts at the top of the prompt and pulls down reloads instead.
- * Mouse drags belong to the simulator and keep scrolling the prompt.
- */
-function rememberPull(event: PointerEvent, section: HTMLElement): void {
-  if (event.pointerType !== 'touch' || section.scrollTop > 0) {
+/** A pull from the prompt or the header above it, as from the top of a page. */
+function startPromptPull(event: TouchEvent): void {
+  const section = findQuestionSection();
+  const touch = event.touches.length === 1 ? event.touches[0] : undefined;
+  if (!isMobileWeb() || !section || !touch) {
+    cancelPull();
     return;
   }
-  pull = { pointerId: event.pointerId, startY: event.clientY, section };
-}
-
-function refreshIfPulled(event: PointerEvent): void {
-  if (!pull || pull.pointerId !== event.pointerId) {
+  const header = section.parentElement?.querySelector<HTMLElement>(':scope > header');
+  if (!startsOnPrompt(event.target, header ? [section, header] : [section])) {
+    cancelPull();
     return;
   }
-  const { startY, section } = pull;
-  pull = null;
-  if (event.type === 'pointercancel' || section.scrollTop > 0) {
-    return;
-  }
-  if (event.clientY - startY < PULL_REFRESH_PX) {
-    return;
-  }
-  reviewPage.reload();
-}
-
-/**
- * pointerup is not the end of a tap. Firefox Android blurs the answer field
- * on the click that follows, and that hides the keyboard. The app only hides
- * it on the system back gesture, so the focus hold stays through that click
- * and then drops. A later blur is the back gesture and must stand.
- */
-function holdKeyboardThroughClick(pointerId: number): void {
-  if (keyboardHoldPointer !== pointerId) {
-    return;
-  }
-  clearKeyboardRelease();
-  const release = () => {
-    finishKeyboardHold(pointerId);
-  };
-  releaseOnClick = release;
-  document.addEventListener('click', release, false);
-  releaseTimer = setTimeout(release, 0);
-}
-
-function finishKeyboardHold(pointerId: number): void {
-  clearKeyboardRelease();
-  releaseHeldKeyboard(pointerId);
-}
-
-function clearKeyboardRelease(): void {
-  if (releaseTimer !== null) {
-    clearTimeout(releaseTimer);
-    releaseTimer = null;
-  }
-  if (releaseOnClick) {
-    document.removeEventListener('click', releaseOnClick, false);
-    releaseOnClick = null;
-  }
+  beginPull(touch, section);
 }
 
 function releaseHeldKeyboard(pointerId?: number): void {
@@ -254,12 +178,15 @@ function releaseHeldKeyboard(pointerId?: number): void {
 }
 
 function isPromptPointer(event: PointerEvent): boolean {
-  return document.documentElement.classList.contains(MOBILE_WEB_CLASS)
-    && event.button === 0;
+  return isMobileWeb() && event.button === 0;
 }
 
-function dragStartsOnPrompt(target: EventTarget | null, section: HTMLElement): boolean {
-  if (!(target instanceof Node) || !section.contains(target)) {
+function isMobileWeb(): boolean {
+  return document.documentElement.classList.contains(MOBILE_WEB_CLASS);
+}
+
+function startsOnPrompt(target: EventTarget | null, areas: HTMLElement[]): boolean {
+  if (!(target instanceof Node) || !areas.some((area) => area.contains(target))) {
     return false;
   }
   return !(target instanceof Element && target.closest('input, textarea, select, [role="slider"]'));

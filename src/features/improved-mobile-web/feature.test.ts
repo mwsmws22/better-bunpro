@@ -2,14 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { improvedMobileWebFeature } from './feature';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
-import { PROMPT_SCROLLING_CLASS, reviewPage } from './prompt-scroll';
-import { BB_VV_HEIGHT, BB_VV_OFFSET_TOP } from './visual-viewport';
+import { PROMPT_SCROLLING_CLASS } from './prompt-scroll';
+import { PULL_INDICATOR_ID, PULL_READY_CLASS, PULL_REFRESH_PX, reviewPage } from './pull-refresh';
+import { BB_VV_HEIGHT } from './visual-viewport';
 
 describe('improvedMobileWebFeature', () => {
   beforeEach(() => {
     document.documentElement.className = '';
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
-    document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
     document.getElementById('bb-styles')?.remove();
     vi.stubGlobal('innerWidth', 390);
     vi.stubGlobal('innerHeight', 800);
@@ -30,9 +30,7 @@ describe('improvedMobileWebFeature', () => {
     improvedMobileWebFeature.stop();
     document.documentElement.className = '';
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
-    document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
     vi.useRealTimers();
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -46,42 +44,7 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('bb-vv-height');
     expect(styles).toContain('justify-content: safe center');
     expect(styles).toContain('touch-action: pan-y');
-    expect(styles).toContain('overscroll-behavior: none');
-    expect(styles).not.toContain('overscroll-behavior-y: auto');
-    expect(styles).toContain('position: fixed');
-    expect(styles).toContain('height: var(--bb-vv-height, 100dvh)');
-    expect(styles).not.toContain('margin-bottom: 1px');
-    expect(styles).not.toContain('bb-vv-offset-top');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
-    const root = rootShellRule(styles);
-    expect(root).toContain('html.bb-mobile-web,');
-    expect(root).toContain('html.bb-mobile-web body');
-    expect(root).toContain('overflow: hidden');
-    expect(root).toContain('margin: 0');
-    expect(root).toContain('top: 0');
-    expect(root).not.toContain('margin-bottom');
-    const page = ruleFor(styles, 'html.bb-mobile-web #js-page-top');
-    expect(page).toContain('display: flex');
-    expect(page).toContain('flex-direction: column');
-    expect(page).toContain('height: var(--bb-vv-height, 100dvh)');
-    const quiz = ruleFor(styles, 'html.bb-mobile-web #js-quiz');
-    expect(quiz).toContain('flex: 1 1 0');
-    expect(quiz).toContain('height: auto');
-    expect(quiz).not.toContain('var(--bb-vv-height');
-    const article = ruleFor(
-      styles,
-      'html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container)',
-    );
-    expect(article).toContain('min-height: 0');
-    expect(article).toContain('height: 100%');
-    expect(article).not.toContain('var(--bb-vv-height');
-    expect(styles).toContain(
-      'article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {\n  flex: 0 0 auto;',
-    );
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
-    expect(styles).toContain(
-      'html.bb-mobile-web #js-quiz .bp-quiz-question button::before {\n  bottom: 0.4em !important;\n}',
-    );
     expect(styles).toContain(
       [
         'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before,',
@@ -98,26 +61,6 @@ describe('improvedMobileWebFeature', () => {
         '}',
       ].join('\n'),
     );
-  });
-
-  it('keeps the document at the top instead of a scrolled layout viewport', () => {
-    const meta = document.createElement('meta');
-    meta.name = 'viewport';
-    meta.content = 'width=device-width, height=device-height, initial-scale=1, minimum-scale=1';
-    document.head.append(meta);
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
-    vi.stubGlobal('scrollY', 240);
-
-    improvedMobileWebFeature.start();
-
-    expect(meta.content).toBe('width=device-width, initial-scale=1, minimum-scale=1');
-    expect(meta.content).not.toContain('height=device-height');
-    expect(scrollTo).toHaveBeenCalledWith(0, 0);
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
-
-    improvedMobileWebFeature.stop();
-    expect(meta.content).toContain('height=device-height');
-    meta.remove();
   });
 
   it('clears the mobile marker and viewport vars when stopped', () => {
@@ -203,169 +146,6 @@ describe('improvedMobileWebFeature', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('keeps the answer focused when an empty answer is submitted', () => {
-    vi.useFakeTimers();
-    const { input, button } = mountEmptySubmit();
-    input.focus();
-    let submitted = false;
-    button.addEventListener('mousedown', () => input.blur());
-    button.addEventListener('click', () => {
-      submitted = true;
-      input.blur();
-    });
-
-    pressSubmit(button);
-
-    expect(submitted).toBe(true);
-    expect(document.activeElement).toBe(input);
-    vi.advanceTimersByTime(0);
-    input.blur();
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('keeps the answer focused when Enter submits an empty answer', () => {
-    vi.useFakeTimers();
-    const { input } = mountEmptySubmit();
-    input.focus();
-    input.addEventListener('keydown', () => input.blur());
-
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-
-    expect(document.activeElement).toBe(input);
-    vi.advanceTimersByTime(0);
-    input.blur();
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('does not focus the answer when an empty submit happens with the keyboard hidden', () => {
-    const { input, button } = mountEmptySubmit();
-
-    pressSubmit(button);
-
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('keeps the answer focused when a graded answer is submitted', () => {
-    vi.useFakeTimers();
-    const { input, button } = mountEmptySubmit();
-    input.value = 'ねる';
-    input.focus();
-    button.addEventListener('mousedown', () => input.blur());
-    button.addEventListener('click', () => input.blur());
-
-    pressSubmit(button);
-
-    expect(document.activeElement).toBe(input);
-    vi.advanceTimersByTime(0);
-    input.blur();
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('keeps the answer focused when Enter submits a graded answer', () => {
-    vi.useFakeTimers();
-    const { input } = mountEmptySubmit();
-    input.value = 'ねる';
-    input.focus();
-    input.addEventListener('keydown', () => input.blur());
-
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-
-    expect(document.activeElement).toBe(input);
-    vi.advanceTimersByTime(0);
-    input.blur();
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('does not open the keyboard when a graded answer is submitted with it hidden', () => {
-    const { input, button } = mountEmptySubmit();
-    input.value = 'ねる';
-
-    pressSubmit(button);
-
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('focuses the answer field when a review page loads', () => {
-    const input = mountReview();
-
-    expect(document.activeElement).toBe(input);
-  });
-
-  it('focuses the answer field when it appears on a review', async () => {
-    document.body.innerHTML = reviewMarkup(1);
-    improvedMobileWebFeature.start();
-    const input = document.createElement('input');
-    input.id = 'js-manual-input';
-    document.body.append(input);
-
-    await flushObservers();
-
-    expect(document.activeElement).toBe(input);
-  });
-
-  it('does not reopen the keyboard after the back gesture dismisses it', async () => {
-    const input = mountReview();
-    input.blur();
-    document.getElementById('quiz-metadata-element')!.setAttribute('data-meta-is-correct', 'true');
-    document.body.append(document.createElement('span'));
-
-    await flushObservers();
-
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('focuses the answer field again on the next review', async () => {
-    const input = mountReview(1);
-    input.blur();
-    document.getElementById('quiz-metadata-element')!.setAttribute(
-      'data-meta-info',
-      JSON.stringify({ id: 2, type: 'vocab' }),
-    );
-
-    await flushObservers();
-
-    expect(document.activeElement).toBe(input);
-  });
-
-  it('focuses the answer field again when the review page loads again', () => {
-    const input = mountReview();
-    input.blur();
-
-    improvedMobileWebFeature.stop();
-    improvedMobileWebFeature.start();
-
-    expect(document.activeElement).toBe(input);
-  });
-
-  it('paints a given-up blank incorrect and leaves a correct answer green', () => {
-    improvedMobileWebFeature.start();
-    document.documentElement.style.setProperty('--c-incorrect', '200 76 82');
-    document.documentElement.style.setProperty('--c-correct', '103 188 105');
-    const bunpro = document.createElement('style');
-    bunpro.textContent = '.text-correct { color: rgb(var(--c-correct) / 1); }';
-    document.head.append(bunpro);
-    document.body.innerHTML = `
-      <div id="js-quiz">
-        <div id="quiz-metadata-element" data-meta-is-revealing="true" data-meta-is-correct="false" data-meta-input=""></div>
-        <div class="bp-quiz-question"><button><span class="text-correct">答え</span></button></div>
-      </div>
-    `;
-    const blank = document.querySelector('.text-correct') as HTMLElement;
-    const givenUp = getComputedStyle(blank).color;
-
-    const meta = document.getElementById('quiz-metadata-element')!;
-    meta.setAttribute('data-meta-is-correct', 'true');
-    meta.setAttribute('data-meta-input', '答え');
-    const correct = getComputedStyle(blank).color;
-
-    bunpro.remove();
-    document.documentElement.style.removeProperty('--c-incorrect');
-    document.documentElement.style.removeProperty('--c-correct');
-    expect(givenUp).toContain('--c-incorrect');
-    expect(correct).toContain('--c-correct');
-    expect(givenUp).not.toBe(correct);
-  });
-
   it('does not open the keyboard when Hint is pressed while it is hidden', () => {
     vi.stubGlobal('outerHeight', 2000);
     vi.stubGlobal('screen', { height: 1440, width: 2560 });
@@ -415,30 +195,6 @@ describe('improvedMobileWebFeature', () => {
     expect(section.scrollTop).toBe(0);
   });
 
-  it('returns the prompt to the top when a viewport resize makes it fit', () => {
-    let scrollHeight = 400;
-    let clientHeight = 100;
-    const section = mountPromptWithGeometry(
-      () => scrollHeight,
-      () => clientHeight,
-    );
-    const viewport = window.visualViewport as VisualViewport & {
-      addEventListener: ReturnType<typeof vi.fn>;
-    };
-    improvedMobileWebFeature.start();
-    section.scrollTop = 70;
-
-    scrollHeight = 90;
-    clientHeight = 120;
-    for (const [, listener] of viewport.addEventListener.mock.calls.filter(
-      ([type]) => type === 'resize',
-    )) {
-      listener(new Event('resize'));
-    }
-
-    expect(section.scrollTop).toBe(0);
-  });
-
   it('keeps the answer focused when the prompt is dragged with the keyboard up', () => {
     vi.stubGlobal('innerWidth', 390);
     vi.stubGlobal('innerHeight', 480);
@@ -474,66 +230,6 @@ describe('improvedMobileWebFeature', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('keeps the answer focused when a prompt tap blurs after pointerup', () => {
-    const section = mountScrollablePrompt();
-    const input = document.createElement('input');
-    input.id = 'js-manual-input';
-    document.body.append(input);
-    improvedMobileWebFeature.start();
-    input.focus();
-
-    section.addEventListener('mousedown', () => input.blur());
-    section.dispatchEvent(pointerAt('pointerdown', 'touch', 80, 1));
-    section.dispatchEvent(pointerAt('pointerup', 'touch', 80, 0));
-    section.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-
-    expect(document.activeElement).toBe(input);
-
-    section.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    input.blur();
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('does not open the keyboard when the prompt is tapped while it is hidden', () => {
-    const section = mountScrollablePrompt();
-    const input = document.createElement('input');
-    input.id = 'js-manual-input';
-    document.body.append(input);
-    improvedMobileWebFeature.start();
-
-    section.dispatchEvent(pointerAt('pointerdown', 'touch', 80, 1));
-    section.dispatchEvent(pointerAt('pointerup', 'touch', 80, 0));
-    section.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(document.activeElement).not.toBe(input);
-  });
-
-  it('reloads the page when a touch pulls down from the top of the prompt', () => {
-    const reload = vi.spyOn(reviewPage, 'reload').mockImplementation(() => {});
-    const section = mountScrollablePrompt();
-    improvedMobileWebFeature.start();
-
-    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
-    section.dispatchEvent(pointerAt('pointerup', 'touch', 40 + 80, 0));
-
-    expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it('does not reload when the pull is short or the prompt is already scrolled', () => {
-    const reload = vi.spyOn(reviewPage, 'reload').mockImplementation(() => {});
-    const section = mountScrollablePrompt();
-    improvedMobileWebFeature.start();
-
-    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
-    section.dispatchEvent(pointerAt('pointerup', 'touch', 60, 0));
-    expect(reload).not.toHaveBeenCalled();
-
-    section.scrollTop = 30;
-    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
-    section.dispatchEvent(pointerAt('pointerup', 'touch', 200, 0));
-    expect(reload).not.toHaveBeenCalled();
-  });
-
   it('does not focus the answer field when dragging with the keyboard hidden', () => {
     const section = mountScrollablePrompt();
     const input = document.createElement('input');
@@ -544,6 +240,110 @@ describe('improvedMobileWebFeature', () => {
     section.dispatchEvent(pointerAt('pointerdown', 'mouse', 100, 1));
 
     expect(document.activeElement).not.toBe(input);
+  });
+
+  describe('pull to refresh', () => {
+    let reload: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      reload = vi.spyOn(reviewPage, 'reload').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      reload.mockRestore();
+    });
+
+    it('reloads when a touch pulls down from the top of the prompt', () => {
+      const section = mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+
+      touchAt(section, 'touchstart', 100);
+      touchAt(section, 'touchmove', 100 + PULL_REFRESH_PX);
+      expect(document.getElementById(PULL_INDICATOR_ID)?.classList.contains(PULL_READY_CLASS)).toBe(true);
+      touchAt(section, 'touchend', 100 + PULL_REFRESH_PX);
+
+      expect(reload).toHaveBeenCalledOnce();
+    });
+
+    it('reloads on a pull from the header above the prompt', () => {
+      mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+      const header = document.querySelector('header')!;
+
+      pullDown(header, PULL_REFRESH_PX + 10);
+
+      expect(reload).toHaveBeenCalledOnce();
+    });
+
+    it('shows progress on a short pull but does not reload', () => {
+      const section = mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+
+      touchAt(section, 'touchstart', 100);
+      touchAt(section, 'touchmove', 140);
+      expect(document.getElementById(PULL_INDICATOR_ID)?.classList.contains(PULL_READY_CLASS)).toBe(false);
+      touchAt(section, 'touchend', 140);
+
+      expect(reload).not.toHaveBeenCalled();
+      expect(document.getElementById(PULL_INDICATOR_ID)).toBeNull();
+    });
+
+    it('leaves a scrolled prompt to scroll back up instead of reloading', () => {
+      const section = mountScrollablePrompt();
+      section.scrollTop = 50;
+      improvedMobileWebFeature.start();
+
+      pullDown(section, PULL_REFRESH_PX + 10);
+
+      expect(reload).not.toHaveBeenCalled();
+      expect(document.getElementById(PULL_INDICATOR_ID)).toBeNull();
+    });
+
+    it('drops the pull once the prompt scrolls away from its top', () => {
+      const section = mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+
+      touchAt(section, 'touchstart', 100);
+      section.scrollTop = 30;
+      touchAt(section, 'touchmove', 100 + PULL_REFRESH_PX);
+      touchAt(section, 'touchend', 100 + PULL_REFRESH_PX);
+
+      expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('does not reload when the browser cancels the touch', () => {
+      const section = mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+
+      touchAt(section, 'touchstart', 100);
+      touchAt(section, 'touchmove', 100 + PULL_REFRESH_PX);
+      touchAt(section, 'touchcancel', 100 + PULL_REFRESH_PX);
+
+      expect(reload).not.toHaveBeenCalled();
+      expect(document.getElementById(PULL_INDICATOR_ID)).toBeNull();
+    });
+
+    it('ignores a pull that starts on the answer bar', () => {
+      mountScrollablePrompt();
+      const footer = document.createElement('footer');
+      footer.innerHTML = '<input id="js-manual-input" />';
+      document.querySelector('article')!.append(footer);
+      improvedMobileWebFeature.start();
+
+      pullDown(footer.querySelector('input')!, PULL_REFRESH_PX + 10);
+
+      expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('stops following touches when the feature stops', () => {
+      const section = mountScrollablePrompt();
+      improvedMobileWebFeature.start();
+      improvedMobileWebFeature.stop();
+
+      pullDown(section, PULL_REFRESH_PX + 10);
+
+      expect(reload).not.toHaveBeenCalled();
+    });
   });
 
   it('does not mark html on a wide desktop viewport', () => {
@@ -557,33 +357,14 @@ describe('improvedMobileWebFeature', () => {
   });
 });
 
-function rootShellRule(styles: string): string {
-  const start = styles.indexOf('html.bb-mobile-web,');
-  const end = styles.indexOf('html.bb-mobile-web #js-page-top');
-  return styles.slice(start, end);
-}
-
-function ruleFor(styles: string, selector: string): string {
-  const start = styles.indexOf(`${selector} {`);
-  const end = styles.indexOf('}', start);
-  return styles.slice(start, end + 1);
-}
-
 function mountScrollablePrompt(): HTMLElement {
-  return mountPromptWithGeometry(() => 400, () => 100);
-}
-
-function mountPromptWithGeometry(
-  scrollHeight: () => number,
-  clientHeight: () => number,
-): HTMLElement {
   document.body.innerHTML = `
-    <div id="js-quiz"><article><section><p>prompt</p></section></article></div>
+    <div id="js-quiz"><article><header><button>menu</button></header><section><p>prompt</p></section></article></div>
   `;
   const section = document.querySelector('section') as HTMLElement;
   let top = 0;
-  Object.defineProperty(section, 'scrollHeight', { configurable: true, get: scrollHeight });
-  Object.defineProperty(section, 'clientHeight', { configurable: true, get: clientHeight });
+  Object.defineProperty(section, 'scrollHeight', { configurable: true, get: () => 400 });
+  Object.defineProperty(section, 'clientHeight', { configurable: true, get: () => 100 });
   Object.defineProperty(section, 'scrollTop', {
     configurable: true,
     get: () => top,
@@ -616,48 +397,23 @@ function pointerAt(type: string, pointerType: string, clientY: number, buttons: 
   });
 }
 
-function reviewMarkup(id: number, session = 'session-1'): string {
-  return `
-    <div id="quiz-metadata-element"
-      data-meta-session-id="${session}"
-      data-meta-info='{"id":${id},"type":"vocab"}'
-      data-meta-input-mode="manual"></div>
-  `;
+function pullDown(target: Element, distance: number): void {
+  touchAt(target, 'touchstart', 100);
+  touchAt(target, 'touchmove', 100 + distance);
+  touchAt(target, 'touchend', 100 + distance);
 }
 
-function mountReview(id = 1): HTMLInputElement {
-  document.body.innerHTML = `
-    ${reviewMarkup(id)}
-    <input id="js-manual-input" />
-  `;
-  improvedMobileWebFeature.start();
-  return document.getElementById('js-manual-input') as HTMLInputElement;
+function touchAt(target: Element, type: string, clientY: number): void {
+  const touch = { identifier: 7, clientY, target } as unknown as Touch;
+  const active = type === 'touchend' || type === 'touchcancel' ? [] : [touch];
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'touches', { value: touchList(active) });
+  Object.defineProperty(event, 'changedTouches', { value: touchList([touch]) });
+  target.dispatchEvent(event);
 }
 
-async function flushObservers(): Promise<void> {
-  for (let i = 0; i < 5; i += 1) {
-    await Promise.resolve();
-  }
-}
-
-function mountEmptySubmit(): { input: HTMLInputElement; button: HTMLButtonElement } {
-  document.body.innerHTML = `
-    <input id="js-manual-input" />
-    <button class="InputManual__button"><span>submit</span></button>
-  `;
-  improvedMobileWebFeature.start();
-  return {
-    input: document.getElementById('js-manual-input') as HTMLInputElement,
-    button: document.querySelector('.InputManual__button') as HTMLButtonElement,
-  };
-}
-
-function pressSubmit(button: HTMLElement): void {
-  const control = button.querySelector('span') ?? button;
-  control.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-  control.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  control.dispatchEvent(new Event('pointerup', { bubbles: true }));
-  control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+function touchList(touches: Touch[]): TouchList {
+  return Object.assign([...touches], { item: (i: number) => touches[i] ?? null }) as unknown as TouchList;
 }
 
 function mountHintPress(): { input: HTMLInputElement; span: Element } {

@@ -1,7 +1,4 @@
-import { watchBodyRemounts } from '../../dom/remount';
-import { findAnswerInput, findSubmitButton } from '../../bunpro/quiz-dom';
-import { reviewKey } from '../../bunpro/review';
-import { readQuizState, watchQuizState } from '../../bunpro/quiz-state';
+import { findAnswerInput } from '../../bunpro/quiz-dom';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
 
 const HINT_BUTTON = 'button[title="Toggle the hint level"]';
@@ -21,57 +18,41 @@ const PHONE_SCREEN_MAX_PX = 1000;
  */
 const PORTRAIT_MIN_RATIO = 1.65;
 
-/** If the submit click never arrives, drop the hold so Back can blur. */
-const SUBMIT_HOLD_FALLBACK_MS = 700;
-
 let onHintPointerDown: ((event: Event) => void) | null = null;
 let onHintClick: ((event: Event) => void) | null = null;
-let onAnswerKeyDown: ((event: KeyboardEvent) => void) | null = null;
-let onSubmitPointerUp: ((event: Event) => void) | null = null;
-let onSubmitPointerCancel: ((event: Event) => void) | null = null;
 let onFrameResize: (() => void) | null = null;
 let releaseFocusHold: (() => void) | null = null;
-let submitHolding = false;
-let submitHold: (() => void) | null = null;
-let submitHoldFallback: ReturnType<typeof setTimeout> | null = null;
-let stopWatchingQuiz: (() => void) | null = null;
-let stopWatchingInput: (() => void) | null = null;
-let openedReview: string | null = null;
 let tallestFrame = 0;
 
 /**
- * Hint taps and submits leave the keyboard where it is. While it covers the
- * page, the answer field keeps focus so the keyboard stays up. While it is
- * hidden, a hint or submit must not focus the field. A new review focuses the
- * field once, which opens the keyboard. The back gesture blurs it, and that
- * dismissal stands until the next review or a full page load.
+ * Hint taps leave the keyboard where it is. While it covers the page, the
+ * answer field keeps focus so the keyboard stays up. While it is hidden,
+ * Bunpro's hint click must not focus the field, or the keyboard opens and
+ * closes again.
  */
 export function startHintKeyboardHold(): void {
   if (onHintPointerDown) {
     return;
   }
   onHintPointerDown = (event: Event) => {
-    if (holdHintKeyboard(event.target)) {
+    if (!isMobileHint(event.target)) {
       return;
     }
-    holdSubmitKeyboard(event.target);
+    const input = findAnswerInput();
+    if (!input) {
+      return;
+    }
+    if (keyboardCoversPage()) {
+      holdAnswerFocused(input);
+      return;
+    }
+    holdAnswerUnfocused(input);
   };
   onHintClick = (event: Event) => {
-    if (isMobileHint(event.target)) {
-      releaseSoon();
+    if (!isMobileHint(event.target)) {
       return;
     }
-    releaseSubmitHoldAfterClick(event.target);
-  };
-  onAnswerKeyDown = holdSubmitOnEnter;
-  onSubmitPointerUp = (event: Event) => {
-    if (!submitHolding || isSubmitControl(event.target)) {
-      return;
-    }
-    releaseSubmitHold();
-  };
-  onSubmitPointerCancel = () => {
-    releaseSubmitHold();
+    releaseSoon();
   };
   onFrameResize = () => {
     tallestFrame = Math.max(tallestFrame, pageHeight());
@@ -79,17 +60,7 @@ export function startHintKeyboardHold(): void {
   onFrameResize();
   window.addEventListener('resize', onFrameResize);
   document.addEventListener('pointerdown', onHintPointerDown, true);
-  document.addEventListener('pointerup', onSubmitPointerUp, true);
-  document.addEventListener('pointercancel', onSubmitPointerCancel, true);
   document.addEventListener('click', onHintClick);
-  document.addEventListener('keydown', onAnswerKeyDown, true);
-  stopWatchingQuiz = watchQuizState(() => {
-    openAnswerKeyboardForReview();
-  });
-  stopWatchingInput = watchBodyRemounts(() => {
-    openAnswerKeyboardForReview();
-  });
-  openAnswerKeyboardForReview();
 }
 
 export function stopHintKeyboardHold(): void {
@@ -101,49 +72,12 @@ export function stopHintKeyboardHold(): void {
     document.removeEventListener('click', onHintClick);
     onHintClick = null;
   }
-  if (onAnswerKeyDown) {
-    document.removeEventListener('keydown', onAnswerKeyDown, true);
-    onAnswerKeyDown = null;
-  }
-  if (onSubmitPointerUp) {
-    document.removeEventListener('pointerup', onSubmitPointerUp, true);
-    onSubmitPointerUp = null;
-  }
-  if (onSubmitPointerCancel) {
-    document.removeEventListener('pointercancel', onSubmitPointerCancel, true);
-    onSubmitPointerCancel = null;
-  }
-  stopWatchingQuiz?.();
-  stopWatchingQuiz = null;
-  stopWatchingInput?.();
-  stopWatchingInput = null;
-  openedReview = null;
-  clearSubmitHoldFallback();
-  submitHolding = false;
-  submitHold = null;
   releaseFocusHold?.();
-  releaseFocusHold = null;
   if (onFrameResize) {
     window.removeEventListener('resize', onFrameResize);
     onFrameResize = null;
   }
   tallestFrame = 0;
-}
-
-function holdHintKeyboard(target: EventTarget | null): boolean {
-  if (!isMobileHint(target)) {
-    return false;
-  }
-  const input = findAnswerInput();
-  if (!input) {
-    return true;
-  }
-  if (keyboardCoversPage()) {
-    holdAnswerFocused(input);
-    return true;
-  }
-  holdAnswerUnfocused(input);
-  return true;
 }
 
 function isMobileHint(target: EventTarget | null): boolean {
@@ -241,111 +175,6 @@ function holdAnswerUnfocused(input: HTMLInputElement): void {
 
 function releaseSoon(): void {
   setTimeout(() => releaseFocusHold?.(), 0);
-}
-
-/**
- * Tapping submit moves focus onto the button and the soft keyboard drops.
- * Hold the field through that tap when the keyboard is already up, for an
- * empty answer and for a graded one, then let the hold go so Back can blur.
- */
-function holdSubmitKeyboard(target: EventTarget | null): void {
-  if (!isSubmitControl(target)) {
-    return;
-  }
-  if (!retainAnswerKeyboard()) {
-    return;
-  }
-  submitHolding = true;
-  submitHold = releaseFocusHold;
-  clearSubmitHoldFallback();
-  submitHoldFallback = setTimeout(() => {
-    submitHoldFallback = null;
-    releaseSubmitHold();
-  }, SUBMIT_HOLD_FALLBACK_MS);
-}
-
-function holdSubmitOnEnter(event: KeyboardEvent): void {
-  if (event.key !== 'Enter' || event.repeat) {
-    return;
-  }
-  const input = findAnswerInput();
-  if (!input || document.activeElement !== input) {
-    return;
-  }
-  if (!retainAnswerKeyboard()) {
-    return;
-  }
-  releaseSoon();
-}
-
-function releaseSubmitHoldAfterClick(target: EventTarget | null): void {
-  if (!submitHolding || !isSubmitControl(target)) {
-    return;
-  }
-  const hold = submitHold;
-  submitHolding = false;
-  submitHold = null;
-  clearSubmitHoldFallback();
-  // The click mounts the empty-answer popup or grades the answer. Keep the
-  // field focused through that, then drop the hold so the back gesture can blur.
-  setTimeout(() => {
-    if (releaseFocusHold === hold) {
-      releaseAnswerKeyboard();
-    }
-  }, 0);
-}
-
-function releaseSubmitHold(): void {
-  if (!submitHolding) {
-    return;
-  }
-  const hold = submitHold;
-  submitHolding = false;
-  submitHold = null;
-  clearSubmitHoldFallback();
-  if (hold !== null && releaseFocusHold === hold) {
-    releaseAnswerKeyboard();
-  }
-}
-
-function clearSubmitHoldFallback(): void {
-  if (submitHoldFallback === null) {
-    return;
-  }
-  clearTimeout(submitHoldFallback);
-  submitHoldFallback = null;
-}
-
-function isSubmitControl(target: EventTarget | null): boolean {
-  return document.documentElement.classList.contains(MOBILE_WEB_CLASS)
-    && target instanceof Element
-    && findSubmitButton()?.contains(target) === true;
-}
-
-/**
- * Focus the answer field once per review so a fresh load, including a refresh,
- * opens the keyboard. Uses the same focus hold as a hint tap, then drops it
- * so a later blur — the back gesture — is not undone.
- */
-function openAnswerKeyboardForReview(): void {
-  if (!document.documentElement.classList.contains(MOBILE_WEB_CLASS)) {
-    return;
-  }
-  const state = readQuizState();
-  if (state.inputMode === 'flashcard') {
-    return;
-  }
-  const key = reviewKey(state);
-  if (!key || key === openedReview) {
-    return;
-  }
-  const input = findAnswerInput();
-  if (!input || input.disabled) {
-    return;
-  }
-  openedReview = key;
-  holdAnswerFocused(input);
-  releaseAnswerKeyboard();
 }
 
 /** Keep the answer field focused while the keyboard is already up. */

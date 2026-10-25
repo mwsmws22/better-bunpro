@@ -195,55 +195,45 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-/* The document does not scroll. It stays pinned to the top of the visible
-   viewport: no extra height, no margin, and no offset. A pull down from the
-   top of the prompt reloads the page. */
 html.bb-mobile-web,
 html.bb-mobile-web body {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
-  margin: 0;
   overflow: hidden;
-  overscroll-behavior: none;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
 }
 html.bb-mobile-web #js-page-top {
-  display: flex;
-  flex-direction: column;
   min-height: 0 !important;
   height: var(--bb-vv-height, 100dvh) !important;
   max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
 }
 html.bb-mobile-web #js-quiz {
-  flex: 1 1 0;
   min-height: 0 !important;
-  height: auto !important;
-  max-height: none !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
-  height: auto;
+  height: 100%;
   max-height: none;
   width: 100%;
-  display: flex;
-  flex-direction: column;
   align-items: stretch;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
-  flex: 1 1 0 !important;
+  flex: 1 1 auto !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
-  min-height: 0 !important;
-  height: 100% !important;
-  max-height: 100% !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -259,10 +249,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
-     A pull down from the top reloads the page. Overscroll stays in this scroller. */
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
   touch-action: pan-y;
-  overscroll-behavior: none;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
@@ -479,6 +468,36 @@ html.bb-mobile-web #js-quiz .InputManual {
 }
 html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
   display: none;
+}
+/** Follows a pull down from the top of the prompt; see pull-refresh. */
+#bb-pull-refresh {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  z-index: 60;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  pointer-events: none;
+  background: rgb(var(--c-tertiary-bg) / 1);
+  color: rgb(var(--c-primary-fg) / 0.7);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+}
+#bb-pull-refresh.bb-pull-ready,
+#bb-pull-refresh.bb-pull-refreshing {
+  color: rgb(var(--c-primary-accent) / 1);
+}
+#bb-pull-refresh.bb-pull-refreshing {
+  animation: bb-pull-spin 700ms linear infinite;
+}
+@keyframes bb-pull-spin {
+  from { transform: translate(-50%, 3rem) rotate(0deg); }
+  to { transform: translate(-50%, 3rem) rotate(360deg); }
 }
 .bb-popover {
   width: max-content;

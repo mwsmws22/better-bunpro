@@ -718,55 +718,45 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-/* The document does not scroll. It stays pinned to the top of the visible
-   viewport: no extra height, no margin, and no offset. A pull down from the
-   top of the prompt reloads the page. */
 html.bb-mobile-web,
 html.bb-mobile-web body {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
-  margin: 0;
   overflow: hidden;
-  overscroll-behavior: none;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
 }
 html.bb-mobile-web #js-page-top {
-  display: flex;
-  flex-direction: column;
   min-height: 0 !important;
   height: var(--bb-vv-height, 100dvh) !important;
   max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
 }
 html.bb-mobile-web #js-quiz {
-  flex: 1 1 0;
   min-height: 0 !important;
-  height: auto !important;
-  max-height: none !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
-  height: auto;
+  height: 100%;
   max-height: none;
   width: 100%;
-  display: flex;
-  flex-direction: column;
   align-items: stretch;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
-  flex: 1 1 0 !important;
+  flex: 1 1 auto !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
-  min-height: 0 !important;
-  height: 100% !important;
-  max-height: 100% !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -782,10 +772,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
-     A pull down from the top reloads the page. Overscroll stays in this scroller. */
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
   touch-action: pan-y;
-  overscroll-behavior: none;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
@@ -1002,6 +991,36 @@ html.bb-mobile-web #js-quiz .InputManual {
 }
 html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
   display: none;
+}
+/** Follows a pull down from the top of the prompt; see pull-refresh. */
+#bb-pull-refresh {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  z-index: 60;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  pointer-events: none;
+  background: rgb(var(--c-tertiary-bg) / 1);
+  color: rgb(var(--c-primary-fg) / 0.7);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+}
+#bb-pull-refresh.bb-pull-ready,
+#bb-pull-refresh.bb-pull-refreshing {
+  color: rgb(var(--c-primary-accent) / 1);
+}
+#bb-pull-refresh.bb-pull-refreshing {
+  animation: bb-pull-spin 700ms linear infinite;
+}
+@keyframes bb-pull-spin {
+  from { transform: translate(-50%, 3rem) rotate(0deg); }
+  to { transform: translate(-50%, 3rem) rotate(360deg); }
 }
 .bb-popover {
   width: max-content;
@@ -1331,7 +1350,7 @@ input.bb-correct-guess {
 	var SLOT_ID = "bb-add-synonym";
 	var SYNONYM_KEY = "s";
 	var PLUS_SHAPES = "<path d=\"M12 5v14M5 12h14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/>";
-	var stopWatchingQuiz$5 = null;
+	var stopWatchingQuiz$4 = null;
 	var stopWatchingRemounts$1 = null;
 	var standInQueuedFor = null;
 	var addSynonymFeature = {
@@ -1341,14 +1360,14 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$5 = watchQuizState(syncButton);
+			stopWatchingQuiz$4 = watchQuizState(syncButton);
 			stopWatchingRemounts$1 = watchBodyRemounts(() => syncButton(readQuizState()));
 			window.addEventListener("keydown", onKeyDown$2, true);
 		},
 		stop() {
 			window.removeEventListener("keydown", onKeyDown$2, true);
-			stopWatchingQuiz$5?.();
-			stopWatchingQuiz$5 = null;
+			stopWatchingQuiz$4?.();
+			stopWatchingQuiz$4 = null;
 			stopWatchingRemounts$1?.();
 			stopWatchingRemounts$1 = null;
 			removeButton();
@@ -1457,7 +1476,7 @@ input.bb-correct-guess {
 		input.setSelectionRange(caret, caret);
 	}
 	var EDIT_KEY = "ArrowLeft";
-	var stopWatchingQuiz$4 = null;
+	var stopWatchingQuiz$3 = null;
 	var pending$1 = null;
 	var restoreTimer = null;
 	var editOnLeftFeature = {
@@ -1467,13 +1486,13 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$4 = watchQuizState(onQuizStateChange$3);
+			stopWatchingQuiz$3 = watchQuizState(onQuizStateChange$3);
 			window.addEventListener("keydown", onKeyDown$1, true);
 		},
 		stop() {
 			window.removeEventListener("keydown", onKeyDown$1, true);
-			stopWatchingQuiz$4?.();
-			stopWatchingQuiz$4 = null;
+			stopWatchingQuiz$3?.();
+			stopWatchingQuiz$3 = null;
 			forgetPending();
 		}
 	};
@@ -1832,7 +1851,7 @@ input.bb-correct-guess {
 		if (!term || !state.isRevealing || !state.isCorrect || hasNativeSentence) return null;
 		return term;
 	}
-	var stopWatchingQuiz$3 = null;
+	var stopWatchingQuiz$2 = null;
 	var exampleSentenceFeature = {
 		id: "example-sentence",
 		title: "Show unverified example sentences for A5 vocab",
@@ -1840,11 +1859,11 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			stopWatchingQuiz$3 = watchQuizState(onQuizStateChange$2);
+			stopWatchingQuiz$2 = watchQuizState(onQuizStateChange$2);
 		},
 		stop() {
-			stopWatchingQuiz$3?.();
-			stopWatchingQuiz$3 = null;
+			stopWatchingQuiz$2?.();
+			stopWatchingQuiz$2 = null;
 			clearSentence();
 		}
 	};
@@ -2807,7 +2826,7 @@ input.bb-correct-guess {
 			type: "vocab"
 		} : null;
 	}
-	var stopWatchingQuiz$2 = null;
+	var stopWatchingQuiz$1 = null;
 	var stopWatchingRemounts = null;
 	var shownFor = null;
 	var shownAnswerOrigin = null;
@@ -2826,7 +2845,7 @@ input.bb-correct-guess {
 			startReplacingAudio();
 			setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
 			setTermAutoplayPlayer(playAnswerBarRecording);
-			stopWatchingQuiz$2 = watchQuizState(onQuizStateChange$1);
+			stopWatchingQuiz$1 = watchQuizState(onQuizStateChange$1);
 			stopWatchingRemounts = watchBodyRemounts(() => {
 				const state = readQuizState();
 				const review = state.reviewable ? reviewKey(state) : null;
@@ -2856,8 +2875,8 @@ input.bb-correct-guess {
 		stop() {
 			stopWatchingRemounts?.();
 			stopWatchingRemounts = null;
-			stopWatchingQuiz$2?.();
-			stopWatchingQuiz$2 = null;
+			stopWatchingQuiz$1?.();
+			stopWatchingQuiz$1 = null;
 			stopReplacingAudio();
 			forgetReplacements();
 			clearAudioSourceIndicator();
@@ -3079,41 +3098,26 @@ input.bb-correct-guess {
 	var KEYBOARD_COVER_GAP_PX = 120;
 	var PHONE_SCREEN_MAX_PX = 1e3;
 	var PORTRAIT_MIN_RATIO = 1.65;
-	var SUBMIT_HOLD_FALLBACK_MS = 700;
 	var onHintPointerDown = null;
 	var onHintClick = null;
-	var onAnswerKeyDown = null;
-	var onSubmitPointerUp = null;
-	var onSubmitPointerCancel = null;
 	var onFrameResize = null;
 	var releaseFocusHold = null;
-	var submitHolding = false;
-	var submitHold = null;
-	var submitHoldFallback = null;
-	var stopWatchingQuiz$1 = null;
-	var stopWatchingInput = null;
-	var openedReview = null;
 	var tallestFrame = 0;
 	function startHintKeyboardHold() {
 		if (onHintPointerDown) return;
 		onHintPointerDown = (event) => {
-			if (holdHintKeyboard(event.target)) return;
-			holdSubmitKeyboard(event.target);
-		};
-		onHintClick = (event) => {
-			if (isMobileHint(event.target)) {
-				releaseSoon();
+			if (!isMobileHint(event.target)) return;
+			const input = findAnswerInput();
+			if (!input) return;
+			if (keyboardCoversPage()) {
+				holdAnswerFocused(input);
 				return;
 			}
-			releaseSubmitHoldAfterClick(event.target);
+			holdAnswerUnfocused(input);
 		};
-		onAnswerKeyDown = holdSubmitOnEnter;
-		onSubmitPointerUp = (event) => {
-			if (!submitHolding || isSubmitControl(event.target)) return;
-			releaseSubmitHold();
-		};
-		onSubmitPointerCancel = () => {
-			releaseSubmitHold();
+		onHintClick = (event) => {
+			if (!isMobileHint(event.target)) return;
+			releaseSoon();
 		};
 		onFrameResize = () => {
 			tallestFrame = Math.max(tallestFrame, pageHeight());
@@ -3121,17 +3125,7 @@ input.bb-correct-guess {
 		onFrameResize();
 		window.addEventListener("resize", onFrameResize);
 		document.addEventListener("pointerdown", onHintPointerDown, true);
-		document.addEventListener("pointerup", onSubmitPointerUp, true);
-		document.addEventListener("pointercancel", onSubmitPointerCancel, true);
 		document.addEventListener("click", onHintClick);
-		document.addEventListener("keydown", onAnswerKeyDown, true);
-		stopWatchingQuiz$1 = watchQuizState(() => {
-			openAnswerKeyboardForReview();
-		});
-		stopWatchingInput = watchBodyRemounts(() => {
-			openAnswerKeyboardForReview();
-		});
-		openAnswerKeyboardForReview();
 	}
 	function stopHintKeyboardHold() {
 		if (onHintPointerDown) {
@@ -3142,44 +3136,12 @@ input.bb-correct-guess {
 			document.removeEventListener("click", onHintClick);
 			onHintClick = null;
 		}
-		if (onAnswerKeyDown) {
-			document.removeEventListener("keydown", onAnswerKeyDown, true);
-			onAnswerKeyDown = null;
-		}
-		if (onSubmitPointerUp) {
-			document.removeEventListener("pointerup", onSubmitPointerUp, true);
-			onSubmitPointerUp = null;
-		}
-		if (onSubmitPointerCancel) {
-			document.removeEventListener("pointercancel", onSubmitPointerCancel, true);
-			onSubmitPointerCancel = null;
-		}
-		stopWatchingQuiz$1?.();
-		stopWatchingQuiz$1 = null;
-		stopWatchingInput?.();
-		stopWatchingInput = null;
-		openedReview = null;
-		clearSubmitHoldFallback();
-		submitHolding = false;
-		submitHold = null;
 		releaseFocusHold?.();
-		releaseFocusHold = null;
 		if (onFrameResize) {
 			window.removeEventListener("resize", onFrameResize);
 			onFrameResize = null;
 		}
 		tallestFrame = 0;
-	}
-	function holdHintKeyboard(target) {
-		if (!isMobileHint(target)) return false;
-		const input = findAnswerInput();
-		if (!input) return true;
-		if (keyboardCoversPage()) {
-			holdAnswerFocused(input);
-			return true;
-		}
-		holdAnswerUnfocused(input);
-		return true;
 	}
 	function isMobileHint(target) {
 		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && target.closest(HINT_BUTTON) !== null;
@@ -3244,62 +3206,6 @@ input.bb-correct-guess {
 	function releaseSoon() {
 		setTimeout(() => releaseFocusHold?.(), 0);
 	}
-	function holdSubmitKeyboard(target) {
-		if (!isSubmitControl(target)) return;
-		if (!retainAnswerKeyboard()) return;
-		submitHolding = true;
-		submitHold = releaseFocusHold;
-		clearSubmitHoldFallback();
-		submitHoldFallback = setTimeout(() => {
-			submitHoldFallback = null;
-			releaseSubmitHold();
-		}, SUBMIT_HOLD_FALLBACK_MS);
-	}
-	function holdSubmitOnEnter(event) {
-		if (event.key !== "Enter" || event.repeat) return;
-		const input = findAnswerInput();
-		if (!input || document.activeElement !== input) return;
-		if (!retainAnswerKeyboard()) return;
-		releaseSoon();
-	}
-	function releaseSubmitHoldAfterClick(target) {
-		if (!submitHolding || !isSubmitControl(target)) return;
-		const hold = submitHold;
-		submitHolding = false;
-		submitHold = null;
-		clearSubmitHoldFallback();
-		setTimeout(() => {
-			if (releaseFocusHold === hold) releaseAnswerKeyboard();
-		}, 0);
-	}
-	function releaseSubmitHold() {
-		if (!submitHolding) return;
-		const hold = submitHold;
-		submitHolding = false;
-		submitHold = null;
-		clearSubmitHoldFallback();
-		if (hold !== null && releaseFocusHold === hold) releaseAnswerKeyboard();
-	}
-	function clearSubmitHoldFallback() {
-		if (submitHoldFallback === null) return;
-		clearTimeout(submitHoldFallback);
-		submitHoldFallback = null;
-	}
-	function isSubmitControl(target) {
-		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && findSubmitButton()?.contains(target) === true;
-	}
-	function openAnswerKeyboardForReview() {
-		if (!document.documentElement.classList.contains("bb-mobile-web")) return;
-		const state = readQuizState();
-		if (state.inputMode === "flashcard") return;
-		const key = reviewKey(state);
-		if (!key || key === openedReview) return;
-		const input = findAnswerInput();
-		if (!input || input.disabled) return;
-		openedReview = key;
-		holdAnswerFocused(input);
-		releaseAnswerKeyboard();
-	}
 	function retainAnswerKeyboard() {
 		if (!document.documentElement.classList.contains("bb-mobile-web")) return false;
 		const input = findAnswerInput();
@@ -3311,25 +3217,87 @@ input.bb-correct-guess {
 	function releaseAnswerKeyboard() {
 		releaseFocusHold?.();
 	}
-	var PROMPT_SCROLLING_CLASS = "bb-prompt-scrolling";
-	var SCROLLBAR_HOLD_MS = 700;
-	var DRAG_START_PX = 5;
-	var PULL_REFRESH_PX = 80;
+	var PULL_INDICATOR_ID = "bb-pull-refresh";
+	var PULL_READY_CLASS = "bb-pull-ready";
+	var PULL_REFRESHING_CLASS = "bb-pull-refreshing";
+	var INDICATOR_TRAVEL = .6;
 	var reviewPage = { reload() {
 		location.reload();
 	} };
+	var pull = null;
+	function beginPull(touch, section) {
+		pull = null;
+		if (section.scrollTop > 0) return;
+		pull = {
+			touchId: touch.identifier,
+			startY: touch.clientY,
+			section,
+			distance: 0
+		};
+	}
+	function followPull(event) {
+		const touch = pull && findTouch(event.changedTouches, pull.touchId);
+		if (!pull || !touch) return;
+		if (event.touches.length > 1 || pull.section.scrollTop > 0) {
+			cancelPull();
+			return;
+		}
+		pull.distance = touch.clientY - pull.startY;
+		showPullProgress(pull.distance);
+	}
+	function finishPull(event) {
+		if (!pull || !findTouch(event.changedTouches, pull.touchId)) return;
+		const pulledFar = event.type === "touchend" && pull.distance >= 80;
+		pull = null;
+		if (!pulledFar) {
+			hideIndicator();
+			return;
+		}
+		indicator().classList.add(PULL_REFRESHING_CLASS);
+		reviewPage.reload();
+	}
+	function cancelPull() {
+		pull = null;
+		hideIndicator();
+	}
+	function findTouch(touches, id) {
+		return Array.from(touches).find((touch) => touch.identifier === id) ?? null;
+	}
+	function showPullProgress(distance) {
+		if (distance <= 0) {
+			hideIndicator();
+			return;
+		}
+		const progress = Math.min(distance / 80, 1);
+		const el = indicator();
+		el.style.transform = `translate(-50%, ${Math.min(distance, 80) * INDICATOR_TRAVEL}px) rotate(${progress * 270}deg)`;
+		el.style.opacity = String(progress);
+		el.classList.toggle(PULL_READY_CLASS, progress >= 1);
+	}
+	function indicator() {
+		const existing = document.getElementById(PULL_INDICATOR_ID);
+		if (existing) return existing;
+		const el = document.createElement("div");
+		el.id = PULL_INDICATOR_ID;
+		el.setAttribute("aria-hidden", "true");
+		el.textContent = "↻";
+		document.body.append(el);
+		return el;
+	}
+	function hideIndicator() {
+		document.getElementById(PULL_INDICATOR_ID)?.remove();
+	}
+	var PROMPT_SCROLLING_CLASS = "bb-prompt-scrolling";
+	var SCROLLBAR_HOLD_MS = 700;
+	var DRAG_START_PX = 5;
 	var onScroll = null;
 	var onPointerDown = null;
 	var onPointerMove = null;
 	var onPointerUp = null;
+	var onTouchStart = null;
 	var hideTimer = null;
 	var drag = null;
 	var keyboardHoldPointer = null;
-	var releaseTimer = null;
-	var releaseOnClick = null;
-	var pull = null;
-	var stopWatchingPrompts = null;
-	var onViewportResize = null;
 	function startPromptScroll() {
 		if (onScroll) return;
 		onScroll = (event) => {
@@ -3345,11 +3313,23 @@ input.bb-correct-guess {
 		document.addEventListener("pointermove", onPointerMove, true);
 		document.addEventListener("pointerup", onPointerUp, true);
 		document.addEventListener("pointercancel", onPointerUp, true);
-		onViewportResize = resetPromptScrollIfFitting;
-		window.addEventListener("resize", onViewportResize);
-		window.visualViewport?.addEventListener("resize", onViewportResize);
-		stopWatchingPrompts = watchBodyRemounts(resetPromptScrollIfFitting);
-		resetPromptScrollIfFitting();
+		onTouchStart = startPromptPull;
+		document.addEventListener("touchstart", onTouchStart, {
+			capture: true,
+			passive: true
+		});
+		document.addEventListener("touchmove", followPull, {
+			capture: true,
+			passive: true
+		});
+		document.addEventListener("touchend", finishPull, {
+			capture: true,
+			passive: true
+		});
+		document.addEventListener("touchcancel", finishPull, {
+			capture: true,
+			passive: true
+		});
 	}
 	function stopPromptScroll() {
 		if (onScroll) {
@@ -3369,30 +3349,23 @@ input.bb-correct-guess {
 			document.removeEventListener("pointercancel", onPointerUp, true);
 			onPointerUp = null;
 		}
-		if (onViewportResize) {
-			window.removeEventListener("resize", onViewportResize);
-			window.visualViewport?.removeEventListener("resize", onViewportResize);
-			onViewportResize = null;
+		if (onTouchStart) {
+			document.removeEventListener("touchstart", onTouchStart, true);
+			document.removeEventListener("touchmove", followPull, true);
+			document.removeEventListener("touchend", finishPull, true);
+			document.removeEventListener("touchcancel", finishPull, true);
+			onTouchStart = null;
 		}
-		stopWatchingPrompts?.();
-		stopWatchingPrompts = null;
+		cancelPull();
 		drag = null;
-		pull = null;
-		clearKeyboardRelease();
 		releaseHeldKeyboard();
 		clearHideTimer();
 		document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
 	}
-	function resetPromptScrollIfFitting() {
-		const section = findQuestionSection();
-		if (section && section.scrollHeight <= section.clientHeight) section.scrollTop = 0;
-	}
 	function startPromptDrag(event) {
 		if (!isPromptPointer(event)) return;
 		const section = findQuestionSection();
-		if (!section || !dragStartsOnPrompt(event.target, section)) return;
-		clearKeyboardRelease();
-		rememberPull(event, section);
+		if (!section || !startsOnPrompt(event.target, [section])) return;
 		if (retainAnswerKeyboard()) {
 			keyboardHoldPointer = event.pointerId;
 			if (event.pointerType === "touch") event.preventDefault();
@@ -3411,7 +3384,7 @@ input.bb-correct-guess {
 		if (!drag || event.pointerId !== drag.pointerId) return;
 		if (event.buttons === 0) {
 			drag = null;
-			holdKeyboardThroughClick(event.pointerId);
+			releaseHeldKeyboard(event.pointerId);
 			return;
 		}
 		if (!drag.active) {
@@ -3424,49 +3397,22 @@ input.bb-correct-guess {
 		drag.section.scrollTop -= delta;
 	}
 	function endPromptDrag(event) {
-		refreshIfPulled(event);
 		if (drag?.pointerId === event.pointerId) drag = null;
-		holdKeyboardThroughClick(event.pointerId);
+		releaseHeldKeyboard(event.pointerId);
 	}
-	function rememberPull(event, section) {
-		if (event.pointerType !== "touch" || section.scrollTop > 0) return;
-		pull = {
-			pointerId: event.pointerId,
-			startY: event.clientY,
-			section
-		};
-	}
-	function refreshIfPulled(event) {
-		if (!pull || pull.pointerId !== event.pointerId) return;
-		const { startY, section } = pull;
-		pull = null;
-		if (event.type === "pointercancel" || section.scrollTop > 0) return;
-		if (event.clientY - startY < PULL_REFRESH_PX) return;
-		reviewPage.reload();
-	}
-	function holdKeyboardThroughClick(pointerId) {
-		if (keyboardHoldPointer !== pointerId) return;
-		clearKeyboardRelease();
-		const release = () => {
-			finishKeyboardHold(pointerId);
-		};
-		releaseOnClick = release;
-		document.addEventListener("click", release, false);
-		releaseTimer = setTimeout(release, 0);
-	}
-	function finishKeyboardHold(pointerId) {
-		clearKeyboardRelease();
-		releaseHeldKeyboard(pointerId);
-	}
-	function clearKeyboardRelease() {
-		if (releaseTimer !== null) {
-			clearTimeout(releaseTimer);
-			releaseTimer = null;
+	function startPromptPull(event) {
+		const section = findQuestionSection();
+		const touch = event.touches.length === 1 ? event.touches[0] : void 0;
+		if (!isMobileWeb() || !section || !touch) {
+			cancelPull();
+			return;
 		}
-		if (releaseOnClick) {
-			document.removeEventListener("click", releaseOnClick, false);
-			releaseOnClick = null;
+		const header = section.parentElement?.querySelector(":scope > header");
+		if (!startsOnPrompt(event.target, header ? [section, header] : [section])) {
+			cancelPull();
+			return;
 		}
+		beginPull(touch, section);
 	}
 	function releaseHeldKeyboard(pointerId) {
 		if (keyboardHoldPointer === null) return;
@@ -3475,10 +3421,13 @@ input.bb-correct-guess {
 		releaseAnswerKeyboard();
 	}
 	function isPromptPointer(event) {
-		return document.documentElement.classList.contains("bb-mobile-web") && event.button === 0;
+		return isMobileWeb() && event.button === 0;
 	}
-	function dragStartsOnPrompt(target, section) {
-		if (!(target instanceof Node) || !section.contains(target)) return false;
+	function isMobileWeb() {
+		return document.documentElement.classList.contains(MOBILE_WEB_CLASS);
+	}
+	function startsOnPrompt(target, areas) {
+		if (!(target instanceof Node) || !areas.some((area) => area.contains(target))) return false;
 		return !(target instanceof Element && target.closest("input, textarea, select, [role=\"slider\"]"));
 	}
 	function showScrollbar() {
@@ -3505,7 +3454,6 @@ input.bb-correct-guess {
 			vv.addEventListener("resize", sync);
 			vv.addEventListener("scroll", sync);
 		} else window.addEventListener("resize", sync);
-		window.addEventListener("scroll", sync);
 		sync();
 	}
 	function stopVisualViewportSync() {
@@ -3515,56 +3463,18 @@ input.bb-correct-guess {
 			vv.removeEventListener("scroll", sync);
 		}
 		window.removeEventListener("resize", sync);
-		window.removeEventListener("scroll", sync);
 		running = false;
 		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
 		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
-		restoreLayoutViewport();
 	}
-	function visibleShell(layoutHeight, visualHeight) {
-		return {
-			height: Math.max(0, Math.min(visualHeight, layoutHeight)),
-			offsetTop: 0
-		};
-	}
-	function withoutDeviceHeight(content) {
-		return content.split(",").map((part) => part.trim()).filter((part) => part.length > 0 && part.toLowerCase() !== "height=device-height").join(", ");
-	}
-	var viewportContent = null;
-	var pinningScroll = false;
 	function sync() {
 		if (!running) return;
 		const vv = window.visualViewport;
-		const layoutHeight = window.innerHeight;
-		const shell = visibleShell(layoutHeight, vv?.height ?? layoutHeight);
-		document.documentElement.style.setProperty(BB_VV_HEIGHT, `${shell.height}px`);
-		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
-		pinLayoutViewport();
-		pinDocumentScroll();
-	}
-	function pinLayoutViewport() {
-		const meta = document.querySelector("meta[name=\"viewport\"]");
-		if (!(meta instanceof HTMLMetaElement)) return;
-		if (viewportContent === null) viewportContent = meta.content;
-		const next = withoutDeviceHeight(viewportContent);
-		if (meta.content !== next) meta.content = next;
-	}
-	function restoreLayoutViewport() {
-		const meta = document.querySelector("meta[name=\"viewport\"]");
-		if (viewportContent !== null && meta instanceof HTMLMetaElement) meta.content = viewportContent;
-		viewportContent = null;
-	}
-	function pinDocumentScroll() {
-		if (pinningScroll) return;
-		const scrolling = document.scrollingElement ?? null;
-		if (!((window.scrollX || 0) !== 0 || (window.scrollY || 0) !== 0 || (scrolling?.scrollTop || 0) !== 0 || (scrolling?.scrollLeft || 0) !== 0)) return;
-		pinningScroll = true;
-		window.scrollTo(0, 0);
-		if (scrolling) {
-			scrolling.scrollTop = 0;
-			scrolling.scrollLeft = 0;
-		}
-		pinningScroll = false;
+		const height = vv?.height ?? window.innerHeight;
+		const offsetTop = vv?.offsetTop ?? 0;
+		const root = document.documentElement.style;
+		root.setProperty(BB_VV_HEIGHT, `${height}px`);
+		root.setProperty(BB_VV_OFFSET_TOP, `${offsetTop}px`);
 	}
 	var improvedMobileWebFeature = {
 		id: "improved-mobile-web",
@@ -3573,12 +3483,12 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
+			startHintKeyboardHold();
+			startPromptScroll();
 			startMobileGate((active) => {
 				if (active) startVisualViewportSync();
 				else stopVisualViewportSync();
 			});
-			startHintKeyboardHold();
-			startPromptScroll();
 		},
 		stop() {
 			stopHintKeyboardHold();

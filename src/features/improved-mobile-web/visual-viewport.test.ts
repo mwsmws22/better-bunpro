@@ -5,8 +5,6 @@ import {
   BB_VV_OFFSET_TOP,
   startVisualViewportSync,
   stopVisualViewportSync,
-  visibleShell,
-  withoutDeviceHeight,
 } from './visual-viewport';
 
 type VvStub = {
@@ -27,35 +25,10 @@ function stubVisualViewport(height: number, offsetTop = 0): VvStub {
   return vv;
 }
 
-describe('visibleShell', () => {
-  it('keeps the emulator shell when the visual viewport already matches the layout', () => {
-    expect(visibleShell(500, 500)).toEqual({ height: 500, offsetTop: 0 });
-  });
-
-  it('stays above an overlay keyboard when the visual viewport is shorter', () => {
-    // Phone: layout viewport stays 800 and the visual viewport is the 500px
-    // above the keyboard. The shell is that visible height, at the top.
-    expect(visibleShell(800, 500)).toEqual({ height: 500, offsetTop: 0 });
-  });
-
-  it('does not shrink the shell when the document is scrolled', () => {
-    expect(visibleShell(800, 800)).toEqual({ height: 800, offsetTop: 0 });
-  });
-});
-
-describe('withoutDeviceHeight', () => {
-  it('drops the device-height token that makes the layout viewport taller than the screen', () => {
-    expect(withoutDeviceHeight(
-      'width=device-width, height=device-height, initial-scale=1, minimum-scale=1',
-    )).toBe('width=device-width, initial-scale=1, minimum-scale=1');
-  });
-});
-
 describe('visualViewport sync', () => {
   beforeEach(() => {
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
     document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
-    vi.stubGlobal('innerHeight', 800);
   });
 
   afterEach(() => {
@@ -65,29 +38,12 @@ describe('visualViewport sync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('keeps the visual height when the viewport is already scrolled', () => {
-    stubVisualViewport(800, 280);
-    startVisualViewportSync();
-
-    expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('800px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
-  });
-
-  it('writes a top-aligned shell when the visual viewport is shorter than the layout', () => {
-    stubVisualViewport(500, 40);
+  it('writes height and offset CSS vars from visualViewport', () => {
+    stubVisualViewport(500, 12);
     startVisualViewportSync();
 
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('500px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
-  });
-
-  it('writes the visual height unchanged when it already matches the layout viewport', () => {
-    vi.stubGlobal('innerHeight', 500);
-    stubVisualViewport(500, 0);
-    startVisualViewportSync();
-
-    expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('500px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('12px');
   });
 
   it('listens for resize and scroll on visualViewport', () => {
@@ -110,7 +66,7 @@ describe('visualViewport sync', () => {
     resizeHandler();
 
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('320px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('40px');
   });
 
   it('falls back to window.innerHeight when visualViewport is missing', () => {
@@ -119,7 +75,7 @@ describe('visualViewport sync', () => {
     startVisualViewportSync();
 
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('720px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('0px');
   });
 
   it('clears vars and removes listeners on stop', () => {
