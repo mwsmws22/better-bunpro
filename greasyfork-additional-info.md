@@ -36,7 +36,7 @@ Bunpro’s **Review SRS → Hide** only conceals the level (Beginner / Seasoned 
 
 ### Improved web mobile experience
 
-On phones (and narrow / responsive-design viewports), the review fills the visible screen with the answer bar at the bottom. Only the cloze and hints scroll inside that space. A pull down from the top of the prompt or the header reloads the page. The cloze underline stays at the low typing position after grading. A cloze answer that was given (not solved) is shown as incorrect. Japanese, English, furigana, and flash terms use a mobile type scale. Hint lines stack with the prompt, including the notes, instead of leaving empty gaps, and cycling hints leaves the keyboard where you left it. Example sentences stay with the question. The settings panel uses the phone width. Desktop layouts are unchanged.
+On phones (and narrow / responsive-design viewports), the review fills the visible screen with the answer bar at the bottom. Only the cloze and hints scroll inside that space. A pull down from the top of the prompt or the header reloads the page. The cloze underline stays at the low typing position after grading. A cloze answer that was given (not solved) is shown as incorrect. Japanese, English, furigana, and flash terms use a mobile type scale. Hint lines stack with the prompt, including the notes, instead of leaving empty gaps, and cycling hints leaves the keyboard where you left it. In the fullscreen phone app the answer bar stays above the keyboard, because Firefox reports the visible area one gesture-bar too tall. Example sentences stay with the question. The settings panel uses the phone width. Desktop layouts are unchanged.
 
 <hr>
 
