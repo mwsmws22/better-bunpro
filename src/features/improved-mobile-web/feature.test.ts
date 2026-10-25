@@ -3,12 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { improvedMobileWebFeature } from './feature';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
 import { PROMPT_SCROLLING_CLASS, reviewPage } from './prompt-scroll';
-import { BB_VV_HEIGHT } from './visual-viewport';
+import { BB_VV_HEIGHT, BB_VV_OFFSET_TOP } from './visual-viewport';
 
 describe('improvedMobileWebFeature', () => {
   beforeEach(() => {
     document.documentElement.className = '';
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
+    document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
     document.getElementById('bb-styles')?.remove();
     vi.stubGlobal('innerWidth', 390);
     vi.stubGlobal('innerHeight', 800);
@@ -29,6 +30,7 @@ describe('improvedMobileWebFeature', () => {
     improvedMobileWebFeature.stop();
     document.documentElement.className = '';
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
+    document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -44,12 +46,21 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('bb-vv-height');
     expect(styles).toContain('justify-content: safe center');
     expect(styles).toContain('touch-action: pan-y');
-    expect(styles).toContain('overscroll-behavior-y: auto');
+    expect(styles).toContain('overscroll-behavior: none');
+    expect(styles).not.toContain('overscroll-behavior-y: auto');
     expect(styles).toContain('position: fixed');
     expect(styles).toContain('height: var(--bb-vv-height, 100dvh)');
     expect(styles).not.toContain('margin-bottom: 1px');
     expect(styles).not.toContain('height: auto');
-    expect(styles).not.toContain('overscroll-behavior: contain');
+    expect(styles).not.toContain('bb-vv-offset-top');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
+    const root = rootShellRule(styles);
+    expect(root).toContain('html.bb-mobile-web,');
+    expect(root).toContain('html.bb-mobile-web body');
+    expect(root).toContain('overflow: hidden');
+    expect(root).toContain('margin: 0');
+    expect(root).toContain('top: 0');
+    expect(root).not.toContain('margin-bottom');
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
     expect(styles).toContain(
       'html.bb-mobile-web #js-quiz .bp-quiz-question button::before {\n  bottom: 0.4em !important;\n}',
@@ -70,6 +81,26 @@ describe('improvedMobileWebFeature', () => {
         '}',
       ].join('\n'),
     );
+  });
+
+  it('keeps the document at the top instead of a scrolled layout viewport', () => {
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, height=device-height, initial-scale=1, minimum-scale=1';
+    document.head.append(meta);
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    vi.stubGlobal('scrollY', 240);
+
+    improvedMobileWebFeature.start();
+
+    expect(meta.content).toBe('width=device-width, initial-scale=1, minimum-scale=1');
+    expect(meta.content).not.toContain('height=device-height');
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
+
+    improvedMobileWebFeature.stop();
+    expect(meta.content).toContain('height=device-height');
+    meta.remove();
   });
 
   it('clears the mobile marker and viewport vars when stopped', () => {
@@ -484,6 +515,12 @@ describe('improvedMobileWebFeature', () => {
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('');
   });
 });
+
+function rootShellRule(styles: string): string {
+  const start = styles.indexOf('html.bb-mobile-web,');
+  const end = styles.indexOf('html.bb-mobile-web #js-page-top');
+  return styles.slice(start, end);
+}
 
 function mountScrollablePrompt(): HTMLElement {
   document.body.innerHTML = `

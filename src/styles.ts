@@ -195,24 +195,20 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-/* Pin the shell to the visible viewport. Letting the root grow with the
-   layout viewport, and adding a 1px body margin so it can scroll, turns into
-   an empty region under the answer bar once the keyboard overlays the page.
-   A pull down from the top of the prompt reloads the page instead. */
-html.bb-mobile-web {
-  height: var(--bb-vv-height, 100dvh);
-  max-height: var(--bb-vv-height, 100dvh);
-  overflow: hidden;
-}
+/* The document does not scroll. It stays pinned to the top of the visible
+   viewport: no extra height, no margin, and no offset. A pull down from the
+   top of the prompt reloads the page. */
+html.bb-mobile-web,
 html.bb-mobile-web body {
   position: fixed;
+  top: 0;
   left: 0;
   width: 100%;
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
-  overflow: hidden;
   margin: 0;
-  top: var(--bb-vv-offset-top, 0px);
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 html.bb-mobile-web #js-page-top {
   min-height: 0 !important;
@@ -259,9 +255,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-y: auto;
   overflow-anchor: none;
   /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
-     A pull down from the top reloads the page. The root does not scroll. */
+     A pull down from the top reloads the page. Overscroll stays in this scroller. */
   touch-action: pan-y;
-  overscroll-behavior-y: auto;
+  overscroll-behavior: none;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
