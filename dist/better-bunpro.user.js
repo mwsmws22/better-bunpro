@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.11
+// @version      0.10.12
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -734,34 +734,39 @@ html.bb-mobile-web body {
   overscroll-behavior: none;
 }
 html.bb-mobile-web #js-page-top {
+  display: flex;
+  flex-direction: column;
   min-height: 0 !important;
   height: var(--bb-vv-height, 100dvh) !important;
   max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
 }
 html.bb-mobile-web #js-quiz {
+  flex: 1 1 0;
   min-height: 0 !important;
-  height: var(--bb-vv-height, 100dvh) !important;
-  max-height: var(--bb-vv-height, 100dvh) !important;
+  height: auto !important;
+  max-height: none !important;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
   max-height: none;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   align-items: stretch;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
-  min-height: var(--bb-vv-height, 100dvh) !important;
-  height: var(--bb-vv-height, 100dvh) !important;
-  max-height: var(--bb-vv-height, 100dvh) !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -3323,6 +3328,8 @@ input.bb-correct-guess {
 	var releaseTimer = null;
 	var releaseOnClick = null;
 	var pull = null;
+	var stopWatchingPrompts = null;
+	var onViewportResize = null;
 	function startPromptScroll() {
 		if (onScroll) return;
 		onScroll = (event) => {
@@ -3338,6 +3345,11 @@ input.bb-correct-guess {
 		document.addEventListener("pointermove", onPointerMove, true);
 		document.addEventListener("pointerup", onPointerUp, true);
 		document.addEventListener("pointercancel", onPointerUp, true);
+		onViewportResize = resetPromptScrollIfFitting;
+		window.addEventListener("resize", onViewportResize);
+		window.visualViewport?.addEventListener("resize", onViewportResize);
+		stopWatchingPrompts = watchBodyRemounts(resetPromptScrollIfFitting);
+		resetPromptScrollIfFitting();
 	}
 	function stopPromptScroll() {
 		if (onScroll) {
@@ -3357,12 +3369,23 @@ input.bb-correct-guess {
 			document.removeEventListener("pointercancel", onPointerUp, true);
 			onPointerUp = null;
 		}
+		if (onViewportResize) {
+			window.removeEventListener("resize", onViewportResize);
+			window.visualViewport?.removeEventListener("resize", onViewportResize);
+			onViewportResize = null;
+		}
+		stopWatchingPrompts?.();
+		stopWatchingPrompts = null;
 		drag = null;
 		pull = null;
 		clearKeyboardRelease();
 		releaseHeldKeyboard();
 		clearHideTimer();
 		document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
+	}
+	function resetPromptScrollIfFitting() {
+		const section = findQuestionSection();
+		if (section && section.scrollHeight <= section.clientHeight) section.scrollTop = 0;
 	}
 	function startPromptDrag(event) {
 		if (!isPromptPointer(event)) return;
@@ -3676,7 +3699,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.11";
+	var version = "0.10.12";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
