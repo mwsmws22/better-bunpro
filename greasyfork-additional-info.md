@@ -36,7 +36,7 @@ Bunpro’s **Review SRS → Hide** only conceals the level (Beginner / Seasoned 
 
 ### Improved web mobile experience
 
-On phones (and narrow / responsive-design viewports), the review fills the visible screen: the answer bar stays at the bottom and the prompt is centered in the space above it, with no leftover gap when the soft keyboard closes. Japanese, English, furigana, and flash terms use a mobile type scale. Hint lines stack with the prompt, including the notes, instead of leaving empty gaps, and cycling hints leaves the keyboard where you left it. Example sentences stay with the question. The settings panel uses the phone width. Desktop layouts are unchanged.
+On phones (and narrow / responsive-design viewports), the review fills the visible screen: the answer bar stays above the keyboard, including when the keyboard overlays the page, and the prompt is centered in the space above it. Tapping the prompt does not hide the keyboard; a back swipe still does. The cloze underline stays at the low typing position after a right or wrong answer. Japanese, English, furigana, and flash terms use a mobile type scale. Hint lines stack with the prompt, including the notes, instead of leaving empty gaps, and cycling hints leaves the keyboard where you left it. Example sentences stay with the question. The settings panel uses the phone width. Desktop layouts are unchanged.
 
 <hr>
 

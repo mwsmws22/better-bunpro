@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.7
+// @version      0.10.8
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -822,7 +822,8 @@ html.bb-mobile-web #js-quiz .bp-quiz-question * {
 }
 /* Underline is before:bottom-4 on the blank. This line box keeps it under the kana.
    Empty, the line sits up on the sentence. Once a kana is typed, it drops so
-   the glyph clears the line. The line box itself stays put. */
+   the glyph clears the line. A graded blank swaps the typed color for
+   text-correct or text-incorrect; keep that same low line. The line box itself stays put. */
 html.bb-mobile-web #js-quiz .bp-quiz-question button,
 html.bb-mobile-web #js-quiz .bp-quiz-question button * {
   line-height: 2.125rem !important;
@@ -830,7 +831,9 @@ html.bb-mobile-web #js-quiz .bp-quiz-question button * {
 html.bb-mobile-web #js-quiz .bp-quiz-question button::before {
   bottom: 0.4em !important;
 }
-html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before {
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before,
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {
   bottom: 0 !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
@@ -3188,6 +3191,8 @@ input.bb-correct-guess {
 	var hideTimer = null;
 	var drag = null;
 	var keyboardHoldPointer = null;
+	var releaseTimer = null;
+	var releaseOnClick = null;
 	function startPromptScroll() {
 		if (onScroll) return;
 		onScroll = (event) => {
@@ -3223,6 +3228,7 @@ input.bb-correct-guess {
 			onPointerUp = null;
 		}
 		drag = null;
+		clearKeyboardRelease();
 		releaseHeldKeyboard();
 		clearHideTimer();
 		document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
@@ -3231,6 +3237,7 @@ input.bb-correct-guess {
 		if (!isPromptPointer(event)) return;
 		const section = findQuestionSection();
 		if (!section || !dragStartsOnPrompt(event.target, section)) return;
+		clearKeyboardRelease();
 		if (retainAnswerKeyboard()) {
 			keyboardHoldPointer = event.pointerId;
 			if (event.pointerType === "touch") event.preventDefault();
@@ -3249,7 +3256,7 @@ input.bb-correct-guess {
 		if (!drag || event.pointerId !== drag.pointerId) return;
 		if (event.buttons === 0) {
 			drag = null;
-			releaseHeldKeyboard(event.pointerId);
+			holdKeyboardThroughClick(event.pointerId);
 			return;
 		}
 		if (!drag.active) {
@@ -3263,7 +3270,31 @@ input.bb-correct-guess {
 	}
 	function endPromptDrag(event) {
 		if (drag?.pointerId === event.pointerId) drag = null;
-		releaseHeldKeyboard(event.pointerId);
+		holdKeyboardThroughClick(event.pointerId);
+	}
+	function holdKeyboardThroughClick(pointerId) {
+		if (keyboardHoldPointer !== pointerId) return;
+		clearKeyboardRelease();
+		const release = () => {
+			finishKeyboardHold(pointerId);
+		};
+		releaseOnClick = release;
+		document.addEventListener("click", release, false);
+		releaseTimer = setTimeout(release, 0);
+	}
+	function finishKeyboardHold(pointerId) {
+		clearKeyboardRelease();
+		releaseHeldKeyboard(pointerId);
+	}
+	function clearKeyboardRelease() {
+		if (releaseTimer !== null) {
+			clearTimeout(releaseTimer);
+			releaseTimer = null;
+		}
+		if (releaseOnClick) {
+			document.removeEventListener("click", releaseOnClick, false);
+			releaseOnClick = null;
+		}
 	}
 	function releaseHeldKeyboard(pointerId) {
 		if (keyboardHoldPointer === null) return;
@@ -3315,14 +3346,20 @@ input.bb-correct-guess {
 		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
 		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
 	}
+	function visibleShell(layoutHeight, visualHeight, visualOffsetTop) {
+		return {
+			height: Math.min(visualHeight, Math.max(0, layoutHeight - Math.max(0, visualOffsetTop))),
+			offsetTop: 0
+		};
+	}
 	function sync() {
 		if (!running) return;
 		const vv = window.visualViewport;
-		const height = vv?.height ?? window.innerHeight;
-		const offsetTop = vv?.offsetTop ?? 0;
+		const layoutHeight = window.innerHeight;
+		const shell = visibleShell(layoutHeight, vv?.height ?? layoutHeight, vv?.offsetTop ?? 0);
 		const root = document.documentElement.style;
-		root.setProperty(BB_VV_HEIGHT, `${height}px`);
-		root.setProperty(BB_VV_OFFSET_TOP, `${offsetTop}px`);
+		root.setProperty(BB_VV_HEIGHT, `${shell.height}px`);
+		root.setProperty(BB_VV_OFFSET_TOP, `${shell.offsetTop}px`);
 	}
 	var improvedMobileWebFeature = {
 		id: "improved-mobile-web",
@@ -3457,7 +3494,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.7";
+	var version = "0.10.8";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
