@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Launch ONLY the Firefox MCP debug profile with remote debugging enabled.
 # Never points at the MWS profile.
-# Always starts a fresh window (no restored tabs).
+# A live window is left running. A new one is detached from this shell
+# (own session) so the window stays up after the launcher exits.
+# No restored tabs.
 #
 # Canonical copy lives in this repo (scripts/firefox-mcp). Symlink to ~/bin:
 #   ln -sfn /home/mws/git/better-bunpro/scripts/firefox-mcp ~/bin/firefox-mcp
@@ -62,41 +64,68 @@ if [[ "$URL" == *"$MWS_PROFILE"* ]] || [[ "$URL" == *MWS* && "$URL" == *profile*
   exit 1
 fi
 
-if pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1; then
+mcp_running() {
+  pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1
+}
+
+marionette_up() {
+  bash -c "echo >/dev/tcp/127.0.0.1/2828" 2>/dev/null
+}
+
+stop_mcp_firefox() {
   pkill -f "firefox --profile ${MCP_PROFILE}" || true
   for _ in $(seq 1 50); do
-    pgrep -f "firefox --profile ${MCP_PROFILE}" >/dev/null 2>&1 || break
+    mcp_running || return 0
     sleep 0.1
   done
   pkill -9 -f "firefox --profile ${MCP_PROFILE}" 2>/dev/null || true
-fi
+}
 
-rm -f \
-  "$MCP_PROFILE/sessionstore.jsonlz4" \
-  "$MCP_PROFILE/sessionstore-backups/recovery.jsonlz4" \
-  "$MCP_PROFILE/sessionstore-backups/recovery.baklz4" \
-  "$MCP_PROFILE/sessionstore-backups/previous.jsonlz4"
+start_mcp_firefox() {
+  local log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/better-bunpro"
+  mkdir -p "$log_dir"
 
-cat >"$MCP_PROFILE/user.js" <<'EOF'
+  rm -f \
+    "$MCP_PROFILE/sessionstore.jsonlz4" \
+    "$MCP_PROFILE/sessionstore-backups/recovery.jsonlz4" \
+    "$MCP_PROFILE/sessionstore-backups/recovery.baklz4" \
+    "$MCP_PROFILE/sessionstore-backups/previous.jsonlz4"
+
+  cat >"$MCP_PROFILE/user.js" <<'EOF'
 // Managed by better-bunpro/scripts/firefox-mcp — MCP debug profile only.
 user_pref("browser.startup.page", 0);
 user_pref("browser.sessionstore.resume_from_crash", false);
 user_pref("browser.sessionstore.restore_on_demand", false);
 EOF
 
-/usr/bin/firefox \
-  --profile "$MCP_PROFILE" \
-  --marionette \
-  --remote-debugging-port=9222 \
-  "$URL" &
-firefox_pid=$!
+  # setsid -f puts Firefox in its own session. Killing this shell's process
+  # group (what happens when an agent job is cleaned up) no longer kills it.
+  setsid -f /usr/bin/firefox \
+    --profile "$MCP_PROFILE" \
+    --marionette \
+    --remote-debugging-port=9222 \
+    "$URL" \
+    >>"$log_dir/firefox-mcp.log" 2>&1 < /dev/null
+}
+
+if mcp_running && marionette_up; then
+  echo "MCP Firefox already running."
+else
+  if mcp_running; then
+    stop_mcp_firefox
+  fi
+  start_mcp_firefox
+fi
 
 for _ in $(seq 1 100); do
-  if bash -c "echo >/dev/tcp/127.0.0.1/2828" 2>/dev/null; then
-    break
-  fi
+  marionette_up && break
   sleep 0.1
 done
+
+if ! marionette_up; then
+  echo "Marionette port 2828 did not open." >&2
+  exit 1
+fi
 
 if [[ "$OPEN_INSTALL" -eq 1 ]]; then
   # Let the first tab finish loading. A --new-tab during early startup makes
@@ -104,5 +133,3 @@ if [[ "$OPEN_INSTALL" -eq 1 ]]; then
   sleep 2
   /usr/bin/firefox --profile "$MCP_PROFILE" --new-tab "$INSTALL_URL" || true
 fi
-
-wait "$firefox_pid"

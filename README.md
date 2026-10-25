@@ -13,6 +13,7 @@ Built with [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey). 
 - Left Arrow to re-edit a wrong answer without deleting the last character
 - Real speaker audio instead of synthesised term TTS (answer-bar play ↔ pause, including autoplay)
 - Fully hide review SRS (pairs with Bunpro’s Review SRS → Hide)
+- Improved web mobile experience (viewport-filling review, centered prompt, mobile type, hint stack; keyboard stays where you left it)
 
 Full Greasy Fork descriptions: [`greasyfork-additional-info.md`](./greasyfork-additional-info.md).
 

@@ -1,4 +1,5 @@
 import { GM, GM_xmlhttpRequest } from '$';
+import { findMonkeySandbox } from '../gm/sandbox';
 import { alertOnce } from '../report';
 
 /**
@@ -23,11 +24,6 @@ const GM_BRIDGE_MESSAGE =
   'server:Better Bunpro so dictionary audio works.';
 
 type GmXmlHttp = typeof GM_xmlhttpRequest;
-
-interface MonkeyWindowHolder {
-  GM_xmlhttpRequest?: GmXmlHttp;
-  GM?: { xmlHttpRequest?: GmXmlHttp };
-}
 
 export function requestText(request: CrossOriginRequest): Promise<string> {
   return send(request, 'text');
@@ -68,17 +64,12 @@ function resolveGmXmlHttpRequest(): GmXmlHttp | undefined {
 }
 
 function gmXmlFromMonkeyDocument(): GmXmlHttp | undefined {
-  for (const key of Object.getOwnPropertyNames(document)) {
-    if (!key.startsWith('__monkeyWindow-')) {
-      continue;
-    }
-    const holder = (document as unknown as Record<string, MonkeyWindowHolder | undefined>)[key];
-    if (typeof holder?.GM_xmlhttpRequest === 'function') {
-      return holder.GM_xmlhttpRequest;
-    }
-    if (typeof holder?.GM?.xmlHttpRequest === 'function') {
-      return holder.GM.xmlHttpRequest;
-    }
+  const holder = findMonkeySandbox();
+  if (typeof holder?.GM_xmlhttpRequest === 'function') {
+    return holder.GM_xmlhttpRequest as GmXmlHttp;
+  }
+  if (typeof holder?.GM?.xmlHttpRequest === 'function') {
+    return holder.GM.xmlHttpRequest as GmXmlHttp;
   }
   return undefined;
 }

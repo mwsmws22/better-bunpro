@@ -7,7 +7,7 @@ import {
 } from '../bunpro/quiz-dom';
 import { element } from '../dom';
 import { watchRemounts } from '../dom/remount';
-import { buildSentenceCard, EXAMPLES_CARD, QUIZ_CARD } from './card';
+import { buildSentenceCard, QUIZ_CARD } from './card';
 import { buildClozeStandIns } from './cloze-question';
 import { markAsOurs, paintStandIns, removeStandIns, type StandIn } from './stand-in';
 
@@ -86,7 +86,8 @@ function buildStandIns(sentence: StudyQuestion): StandIn[] {
     return buildClozeStandIns(sentence);
   }
 
-  const card = element('div', { class: SLOT_CLASS }, [buildSentenceCard(sentence, EXAMPLES_CARD)]);
+  // Quiz frame (not the Examples list) — same compact type as Bunpro’s own quiz card.
+  const card = element('div', { class: SLOT_CLASS }, [buildSentenceCard(sentence, QUIZ_CARD)]);
   return [{ ours: markAsOurs(card), appendTo: findQuestionSection }];
 }
 

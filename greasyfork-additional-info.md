@@ -34,6 +34,10 @@ After a correct answer, press `Tab` to cycle through other example sentences for
 
 Bunpro’s **Review SRS → Hide** only conceals the level (Beginner / Seasoned / …) before you answer; after a wrong answer, give-up, or correct it still flashes. This keeps that chip hidden for the whole review. Turn on Bunpro’s Hide as well so the level stays gone before submit too.
 
+### Improved web mobile experience
+
+On phones (and narrow / responsive-design viewports), the review fills the visible screen: the answer bar stays at the bottom and the prompt is centered in the space above it, with no leftover gap when the soft keyboard closes. Japanese, English, furigana, and flash terms use a mobile type scale. Hint lines stack with the prompt, including the notes, instead of leaving empty gaps, and cycling hints leaves the keyboard where you left it. Example sentences stay with the question. The settings panel uses the phone width. Desktop layouts are unchanged.
+
 <hr>
 
 Source: [github.com/mwsmws22/better-bunpro](https://github.com/mwsmws22/better-bunpro)

@@ -54,9 +54,7 @@ const CSS = `
   min-width: 0;
 }
 .bb-feature-about-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
+  display: block;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -64,15 +62,52 @@ const CSS = `
 .bb-feature-about-summary::-webkit-details-marker {
   display: none;
 }
+.bb-feature-about-summary::marker {
+  content: '';
+}
+.bb-feature-about-summary > span {
+  display: inline;
+}
+.bb-feature-title-tail {
+  white-space: nowrap;
+}
 .bb-feature-caret {
-  flex-shrink: 0;
+  display: inline-block;
   width: 1.125em;
   height: 1.125em;
+  margin-inline-start: 0.15em;
+  vertical-align: -0.2em;
   color: rgb(var(--c-primary-accent) / 1);
   transition: transform 120ms ease;
 }
-.bb-feature-about[open] > .bb-feature-about-summary > .bb-feature-caret {
+/* Phone width: the card uses the screen and scrolls inside the visible
+   viewport instead of floating as a narrow desktop dialog. */
+html.bb-mobile-web #bb-settings-panel {
+  padding: 0.75rem 0.5rem;
+}
+html.bb-mobile-web .bb-panel-card {
+  width: 100%;
+  max-height: calc(var(--bb-vv-height, 100dvh) - 1.5rem);
+}
+html.bb-mobile-web .bb-panel-card > header,
+html.bb-mobile-web .bb-panel-card > div {
+  padding: 0.85rem 0.9rem;
+}
+html.bb-mobile-web .bb-panel-card ul {
+  gap: 0.85rem;
+}
+html.bb-mobile-web .bb-panel-card li {
+  gap: 0.75rem;
+}
+html.bb-mobile-web .bb-feature-about-summary {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.bb-feature-about[open] .bb-feature-caret {
   transform: rotate(90deg);
+}
+.bb-panel-card li:has(.bb-feature-about[open]) {
+  align-items: flex-start;
 }
 .bb-feature-desc {
   margin-top: 0.5rem;
@@ -154,6 +189,276 @@ html.bb-skipping-undo-modal .Toast {
  */
 html.bb-hide-srs li[title="Your SRS progress"] {
   display: none !important;
+}
+/**
+ * Improved web mobile experience: pin the review shell to the visible
+ * viewport (visualViewport height) so the soft keyboard does not leave a gap.
+ * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
+ */
+html.bb-mobile-web,
+html.bb-mobile-web body {
+  height: var(--bb-vv-height, 100dvh);
+  max-height: var(--bb-vv-height, 100dvh);
+  overflow: hidden;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
+}
+html.bb-mobile-web #js-page-top {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  width: 100%;
+  align-items: stretch;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
+  flex: 1 1 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > header {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center;
+  /* Center the prompt when it fits. When the notes overflow the space above
+     the keyboard, pin to the top so the sentence stays put and the rest scrolls. */
+  justify-content: safe center;
+  /* Bunpro quiz section uses grid gap-6 (6px); flex replaces grid so restore it. */
+  gap: 0.375rem !important;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  scrollbar-color: rgb(255 255 255 / 0.45) transparent;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar {
+  width: 0.25rem;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0.25rem;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.45);
+}
+/**
+ * Optically center the prompt in the section. Auto margins eat free space
+ * above/below the prompt group; keep kanji + revealed answer meanings flush
+ * (do not put margin-bottom:auto on the term when the answer <p> is visible).
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  margin-top: auto;
+}
+/**
+ * Cloze type matched to the native app. Flash terms stay on Bunpro's
+ * 1.1875rem cap. Furigana stays at 46% so the sentence size does not enlarge it.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  font-size: 1.1875rem !important;
+  line-height: 2.125rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question,
+html.bb-mobile-web #js-quiz .bp-quiz-question * {
+  font-size: 1.23rem !important;
+  line-height: 2.125rem !important;
+}
+/* Underline is before:bottom-4 on the blank. This line box keeps it under the kana.
+   Empty, the line sits up on the sentence. Once a kana is typed, it drops so
+   the glyph clears the line. The line box itself stays put. */
+html.bb-mobile-web #js-quiz .bp-quiz-question button,
+html.bb-mobile-web #js-quiz .bp-quiz-question button * {
+  line-height: 2.125rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button::before {
+  bottom: 0.4em !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before {
+  bottom: 0 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question rt,
+html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
+  font-size: 46% !important;
+  line-height: 1 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-tense {
+  font-size: 0.75rem !important;
+  line-height: 0.875rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans * {
+  font-size: 0.9rem !important;
+  line-height: 1.58rem !important;
+}
+/* Keep the sentence, English, and notes at their line spacing when the fourth
+   hint overflows the screen. A shrinkable English block lets the notes slide
+   up into it. The section scrolls instead. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid {
+  flex-shrink: 0;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+/* A hidden hint step must not leave a gap. The word hint leaves Bunpro's
+   absolute overlay so it joins the centered stack. */
+html.bb-mobile-web #js-quiz .bp-quiz-trans.opacity-0,
+html.bb-mobile-web #js-quiz .bp-quiz-trans.invisible {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans--hint {
+  position: static !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:not(:has(.bp-quiz-trans:not(.opacity-0))) {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(.bp-quiz-trans:not(.opacity-0)) {
+  margin-top: 0.2rem;
+  text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/* Pre-answer: only a hidden spacer follows — center the term alone. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ *)),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ *)) {
+  margin-bottom: auto;
+}
+/* Post-answer: meanings flush under the term; center that pair when no example. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0) {
+  margin-bottom: auto;
+  text-align: center;
+  width: 100%;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[id^='study-question-']),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/**
+ * Example sentence (unverified / cycle) belongs in the centered prompt group,
+ * not parked under margin-bottom:auto against the answer bar.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bb-sentence-slot,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[data-bb-study-question],
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[id^='study-question-'] {
+  margin-top: 0.75rem;
+  margin-bottom: auto;
+  max-width: 100%;
+}
+/**
+ * Example cards: Bunpro text-body / text-extra-small tokens.
+ */
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-ddw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-ddw {
+  font-size: 1rem !important;
+  line-height: 1.25rem !important;
+}
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-sdw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
+  font-size: 0.75rem !important;
+  line-height: 0.875rem !important;
+}
+/* Invisible Bunpro spacers bias the prompt upward — drop them.
+   A hint row stays up while one note is still hidden, so Bunpro can show
+   the Japanese note and the English note on separate taps. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:not(:has(> :not(.opacity-0))),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:not(:has(> :not(p.opacity-0))) {
+  display: none !important;
+}
+/* A note that Bunpro has not revealed yet must not leave a blank line. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) {
+  /* Match the gap under the English to the gap between the two notes.
+     Furigana sits in the note, so this gap is measured above the reading. */
+  margin-top: -0.125rem;
+  text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child > svg {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  padding: 0 !important;
+  vertical-align: baseline !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw * {
+  font-size: 0.95rem !important;
+  line-height: 1.6rem !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child * {
+  font-size: 0.84rem !important;
+  line-height: 1.45rem !important;
+}
+/* The note size rules match every descendant, which blows readings up to the
+   kanji size and stretches each character to the reading's width. Keep
+   furigana at the same proportion as the sentence. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw .hide-furigana,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child .hide-furigana {
+  font-size: 46% !important;
+  line-height: 1 !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-console,
+html.bb-mobile-web #js-quiz .InputManual {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
+  display: none;
 }
 .bb-popover {
   width: max-content;

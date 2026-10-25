@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.9.4
+// @version      0.10.7
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -26,11 +26,19 @@
 	var _GM_registerMenuCommand = (() => typeof GM_registerMenuCommand != "undefined" ? GM_registerMenuCommand : void 0)();
 	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
 	var _GM_xmlhttpRequest = (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
+	function findMonkeySandbox() {
+		for (const key of Object.getOwnPropertyNames(document)) {
+			if (!key.startsWith("__monkeyWindow-")) continue;
+			const holder = document[key];
+			if (holder && typeof holder === "object") return holder;
+		}
+	}
 	var listeners = new Set();
 	function readStored(key, fallback) {
 		try {
-			if (typeof _GM_getValue !== "function") return fallback;
-			const stored = _GM_getValue(key, void 0);
+			const read = resolveGmGet();
+			if (!read) return fallback;
+			const stored = read(key, void 0);
 			return stored === void 0 ? fallback : stored;
 		} catch {
 			return fallback;
@@ -38,12 +46,24 @@
 	}
 	function writeStored(key, value) {
 		try {
-			if (typeof _GM_setValue === "function") _GM_setValue(key, value);
+			resolveGmSet()?.(key, value);
 		} catch {}
 		for (const listener of listeners) listener(key);
 	}
+	function resolveGmGet() {
+		if (typeof _GM_getValue === "function") return _GM_getValue;
+		const sandbox = findMonkeySandbox();
+		if (typeof sandbox?.GM_getValue === "function") return sandbox.GM_getValue;
+		if (typeof sandbox?.GM?.getValue === "function") return sandbox.GM.getValue;
+	}
+	function resolveGmSet() {
+		if (typeof _GM_setValue === "function") return _GM_setValue;
+		const sandbox = findMonkeySandbox();
+		if (typeof sandbox?.GM_setValue === "function") return sandbox.GM_setValue;
+		if (typeof sandbox?.GM?.setValue === "function") return sandbox.GM.setValue;
+	}
 	var features = [];
-	var running = new Set();
+	var running$1 = new Set();
 	function registerFeature(feature) {
 		features.push(feature);
 	}
@@ -62,13 +82,13 @@
 	}
 	function syncFeature(feature) {
 		const shouldRun = isFeatureEnabled(feature);
-		if (shouldRun === running.has(feature.id)) return;
+		if (shouldRun === running$1.has(feature.id)) return;
 		if (shouldRun) {
 			feature.start();
-			running.add(feature.id);
+			running$1.add(feature.id);
 		} else {
 			feature.stop();
-			running.delete(feature.id);
+			running$1.delete(feature.id);
 		}
 	}
 	function enabledKey(feature) {
@@ -557,9 +577,7 @@
   min-width: 0;
 }
 .bb-feature-about-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
+  display: block;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -567,15 +585,52 @@
 .bb-feature-about-summary::-webkit-details-marker {
   display: none;
 }
+.bb-feature-about-summary::marker {
+  content: '';
+}
+.bb-feature-about-summary > span {
+  display: inline;
+}
+.bb-feature-title-tail {
+  white-space: nowrap;
+}
 .bb-feature-caret {
-  flex-shrink: 0;
+  display: inline-block;
   width: 1.125em;
   height: 1.125em;
+  margin-inline-start: 0.15em;
+  vertical-align: -0.2em;
   color: rgb(var(--c-primary-accent) / 1);
   transition: transform 120ms ease;
 }
-.bb-feature-about[open] > .bb-feature-about-summary > .bb-feature-caret {
+/* Phone width: the card uses the screen and scrolls inside the visible
+   viewport instead of floating as a narrow desktop dialog. */
+html.bb-mobile-web #bb-settings-panel {
+  padding: 0.75rem 0.5rem;
+}
+html.bb-mobile-web .bb-panel-card {
+  width: 100%;
+  max-height: calc(var(--bb-vv-height, 100dvh) - 1.5rem);
+}
+html.bb-mobile-web .bb-panel-card > header,
+html.bb-mobile-web .bb-panel-card > div {
+  padding: 0.85rem 0.9rem;
+}
+html.bb-mobile-web .bb-panel-card ul {
+  gap: 0.85rem;
+}
+html.bb-mobile-web .bb-panel-card li {
+  gap: 0.75rem;
+}
+html.bb-mobile-web .bb-feature-about-summary {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.bb-feature-about[open] .bb-feature-caret {
   transform: rotate(90deg);
+}
+.bb-panel-card li:has(.bb-feature-about[open]) {
+  align-items: flex-start;
 }
 .bb-feature-desc {
   margin-top: 0.5rem;
@@ -657,6 +712,276 @@ html.bb-skipping-undo-modal .Toast {
  */
 html.bb-hide-srs li[title="Your SRS progress"] {
   display: none !important;
+}
+/**
+ * Improved web mobile experience: pin the review shell to the visible
+ * viewport (visualViewport height) so the soft keyboard does not leave a gap.
+ * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
+ */
+html.bb-mobile-web,
+html.bb-mobile-web body {
+  height: var(--bb-vv-height, 100dvh);
+  max-height: var(--bb-vv-height, 100dvh);
+  overflow: hidden;
+}
+html.bb-mobile-web body {
+  position: relative;
+  top: var(--bb-vv-offset-top, 0px);
+}
+html.bb-mobile-web #js-page-top {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz {
+  min-height: 0 !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  width: 100%;
+  align-items: stretch;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
+  flex: 1 1 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+  min-height: var(--bb-vv-height, 100dvh) !important;
+  height: var(--bb-vv-height, 100dvh) !important;
+  max-height: var(--bb-vv-height, 100dvh) !important;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > header {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center;
+  /* Center the prompt when it fits. When the notes overflow the space above
+     the keyboard, pin to the top so the sentence stays put and the rest scrolls. */
+  justify-content: safe center;
+  /* Bunpro quiz section uses grid gap-6 (6px); flex replaces grid so restore it. */
+  gap: 0.375rem !important;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section {
+  scrollbar-color: rgb(255 255 255 / 0.45) transparent;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar {
+  width: 0.25rem;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0.25rem;
+}
+html.bb-mobile-web.bb-prompt-scrolling #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.45);
+}
+/**
+ * Optically center the prompt in the section. Auto margins eat free space
+ * above/below the prompt group; keep kanji + revealed answer meanings flush
+ * (do not put margin-bottom:auto on the term when the answer <p> is visible).
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  margin-top: auto;
+}
+/**
+ * Cloze type matched to the native app. Flash terms stay on Bunpro's
+ * 1.1875rem cap. Furigana stays at 46% so the sentence size does not enlarge it.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] {
+  font-size: 1.1875rem !important;
+  line-height: 2.125rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question,
+html.bb-mobile-web #js-quiz .bp-quiz-question * {
+  font-size: 1.23rem !important;
+  line-height: 2.125rem !important;
+}
+/* Underline is before:bottom-4 on the blank. This line box keeps it under the kana.
+   Empty, the line sits up on the sentence. Once a kana is typed, it drops so
+   the glyph clears the line. The line box itself stays put. */
+html.bb-mobile-web #js-quiz .bp-quiz-question button,
+html.bb-mobile-web #js-quiz .bp-quiz-question button * {
+  line-height: 2.125rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button::before {
+  bottom: 0.4em !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before {
+  bottom: 0 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-question rt,
+html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
+  font-size: 46% !important;
+  line-height: 1 !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-tense {
+  font-size: 0.75rem !important;
+  line-height: 0.875rem !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans,
+html.bb-mobile-web #js-quiz .bp-quiz-trans-wrap .bp-quiz-trans * {
+  font-size: 0.9rem !important;
+  line-height: 1.58rem !important;
+}
+/* Keep the sentence, English, and notes at their line spacing when the fourth
+   hint overflows the screen. A shrinkable English block lets the notes slide
+   up into it. The section scrolls instead. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid {
+  flex-shrink: 0;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+/* A hidden hint step must not leave a gap. The word hint leaves Bunpro's
+   absolute overlay so it joins the centered stack. */
+html.bb-mobile-web #js-quiz .bp-quiz-trans.opacity-0,
+html.bb-mobile-web #js-quiz .bp-quiz-trans.invisible {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-trans--hint {
+  position: static !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:not(:has(.bp-quiz-trans:not(.opacity-0))) {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(.bp-quiz-trans:not(.opacity-0)) {
+  margin-top: 0.2rem;
+  text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-trans-wrap:has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/* Pre-answer: only a hidden spacer follows — center the term alone. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ .bp-quiz-trans-wrap)):has(+ p.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question:not(:has(+ *)),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash']:not(:has(+ *)) {
+  margin-bottom: auto;
+}
+/* Post-answer: meanings flush under the term; center that pair when no example. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0) {
+  margin-bottom: auto;
+  text-align: center;
+  width: 100%;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ .bb-sentence-slot),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[data-bb-study-question]),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-question + p:not(.opacity-0):has(+ aside[id^='study-question-']),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > [class*='QuestionFlash'] + p:not(.opacity-0):has(+ aside[id^='study-question-']) {
+  margin-bottom: 0;
+}
+/**
+ * Example sentence (unverified / cycle) belongs in the centered prompt group,
+ * not parked under margin-bottom:auto against the answer bar.
+ */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bb-sentence-slot,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[data-bb-study-question],
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > aside[id^='study-question-'] {
+  margin-top: 0.75rem;
+  margin-bottom: auto;
+  max-width: 100%;
+}
+/**
+ * Example cards: Bunpro text-body / text-extra-small tokens.
+ */
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-ddw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-ddw {
+  font-size: 1rem !important;
+  line-height: 1.25rem !important;
+}
+html.bb-mobile-web #js-quiz .bb-sentence-slot .bp-sdw,
+html.bb-mobile-web #js-quiz aside[data-bb-study-question] .bp-sdw {
+  font-size: 0.75rem !important;
+  line-height: 0.875rem !important;
+}
+/* Invisible Bunpro spacers bias the prompt upward — drop them.
+   A hint row stays up while one note is still hidden, so Bunpro can show
+   the Japanese note and the English note on separate taps. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > .bp-quiz-leading-hint:not(:has(> :not(.opacity-0))),
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:not(:has(> :not(p.opacity-0))) {
+  display: none !important;
+}
+/* A note that Bunpro has not revealed yet must not leave a blank line. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid > p.opacity-0 {
+  display: none !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) {
+  /* Match the gap under the English to the gap between the two notes.
+     Furigana sits in the note, so this gap is measured above the reading. */
+  margin-top: -0.125rem;
+  text-align: center;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child > svg {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  padding: 0 !important;
+  vertical-align: baseline !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw * {
+  font-size: 0.95rem !important;
+  line-height: 1.6rem !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child * {
+  font-size: 0.84rem !important;
+  line-height: 1.45rem !important;
+}
+/* The note size rules match every descendant, which blows readings up to the
+   kanji size and stretches each character to the reading's width. Keep
+   furigana at the same proportion as the sentence. */
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:first-child .bp-ddw .hide-furigana,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child rt,
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > section > div.grid:has(> :not(p.opacity-0)) > p:last-child .hide-furigana {
+  font-size: 46% !important;
+  line-height: 1 !important;
+}
+html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .bp-quiz-console,
+html.bb-mobile-web #js-quiz .InputManual {
+  flex: 0 0 auto;
+}
+html.bb-mobile-web #js-quiz .InputManual > div.p-6 {
+  display: none;
 }
 .bb-popover {
   width: max-content;
@@ -1290,12 +1615,7 @@ input.bb-correct-guess {
 		return sentence.kanji_answer || sentence.answer;
 	}
 	var SHARED_CARD_CLASS = "not-prose relative my-0 block overflow-hidden rounded-normal border align-top sm:flex sm:items-center sm:justify-between bg-tertiary-bg/50 border-rim";
-	var EXAMPLES_CARD = {
-		cardClass: `${SHARED_CARD_CLASS} sm:gap-4 px-16 pt-12 pb-16 sm:px-24 sm:pt-16 sm:pb-24`,
-		japaneseClass: "bp-ddw text-large md:text-subtitle prose w-full",
-		englishClass: "bp-sdw text-body prose w-full",
-		audioFontSize: "2.25rem"
-	};
+	`${SHARED_CARD_CLASS}`;
 	var QUIZ_CARD = {
 		cardClass: `${SHARED_CARD_CLASS} gap-8 px-12 py-8 sm:p-16 sm:gap-12 sm:pt-12`,
 		japaneseClass: "bp-ddw text-body sm:text-large prose w-full",
@@ -1452,7 +1772,7 @@ input.bb-correct-guess {
 		}];
 		if (findClozeSentence()) return buildClozeStandIns(sentence);
 		return [{
-			ours: markAsOurs(element("div", { class: SLOT_CLASS }, [buildSentenceCard(sentence, EXAMPLES_CARD)])),
+			ours: markAsOurs(element("div", { class: SLOT_CLASS }, [buildSentenceCard(sentence, QUIZ_CARD)])),
 			appendTo: findQuestionSection
 		}];
 	}
@@ -2037,12 +2357,9 @@ input.bb-correct-guess {
 		return gmXmlFromMonkeyDocument();
 	}
 	function gmXmlFromMonkeyDocument() {
-		for (const key of Object.getOwnPropertyNames(document)) {
-			if (!key.startsWith("__monkeyWindow-")) continue;
-			const holder = document[key];
-			if (typeof holder?.GM_xmlhttpRequest === "function") return holder.GM_xmlhttpRequest;
-			if (typeof holder?.GM?.xmlHttpRequest === "function") return holder.GM.xmlHttpRequest;
-		}
+		const holder = findMonkeySandbox();
+		if (typeof holder?.GM_xmlhttpRequest === "function") return holder.GM_xmlhttpRequest;
+		if (typeof holder?.GM?.xmlHttpRequest === "function") return holder.GM.xmlHttpRequest;
 	}
 	function gmXmlHttpRequest() {
 		const request = resolveGmXmlHttpRequest();
@@ -2697,6 +3014,337 @@ input.bb-correct-guess {
 		clearAnswerBarReplay();
 		clearAudioSourceIndicator();
 	}
+	var MOBILE_WEB_CLASS = "bb-mobile-web";
+	var MOBILE_UA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+	var onChange = null;
+	var active = false;
+	var synced = false;
+	function isMobileContext(width = window.innerWidth, userAgent = navigator.userAgent) {
+		return width <= 640 || MOBILE_UA.test(userAgent);
+	}
+	function startMobileGate(listener) {
+		stopMobileGate();
+		onChange = listener;
+		window.addEventListener("resize", reevaluate);
+		reevaluate();
+	}
+	function stopMobileGate() {
+		window.removeEventListener("resize", reevaluate);
+		const listener = onChange;
+		onChange = null;
+		if (!listener) {
+			clearClass();
+			return;
+		}
+		clearClass();
+		listener(false);
+	}
+	function reevaluate() {
+		setActive(isMobileContext());
+	}
+	function setActive(next) {
+		const hasClass = document.documentElement.classList.contains(MOBILE_WEB_CLASS);
+		if (synced && next === active && next === hasClass) return;
+		synced = true;
+		active = next;
+		document.documentElement.classList.toggle(MOBILE_WEB_CLASS, next);
+		onChange?.(next);
+	}
+	function clearClass() {
+		active = false;
+		synced = false;
+		document.documentElement.classList.remove(MOBILE_WEB_CLASS);
+	}
+	var HINT_BUTTON = "button[title=\"Toggle the hint level\"]";
+	var KEYBOARD_COVER_GAP_PX = 120;
+	var PHONE_SCREEN_MAX_PX = 1e3;
+	var PORTRAIT_MIN_RATIO = 1.65;
+	var onHintPointerDown = null;
+	var onHintClick = null;
+	var onFrameResize = null;
+	var releaseFocusHold = null;
+	var tallestFrame = 0;
+	function startHintKeyboardHold() {
+		if (onHintPointerDown) return;
+		onHintPointerDown = (event) => {
+			if (!isMobileHint(event.target)) return;
+			const input = findAnswerInput();
+			if (!input) return;
+			if (keyboardCoversPage()) {
+				holdAnswerFocused(input);
+				return;
+			}
+			holdAnswerUnfocused(input);
+		};
+		onHintClick = (event) => {
+			if (!isMobileHint(event.target)) return;
+			releaseSoon();
+		};
+		onFrameResize = () => {
+			tallestFrame = Math.max(tallestFrame, pageHeight());
+		};
+		onFrameResize();
+		window.addEventListener("resize", onFrameResize);
+		document.addEventListener("pointerdown", onHintPointerDown, true);
+		document.addEventListener("click", onHintClick);
+	}
+	function stopHintKeyboardHold() {
+		if (onHintPointerDown) {
+			document.removeEventListener("pointerdown", onHintPointerDown, true);
+			onHintPointerDown = null;
+		}
+		if (onHintClick) {
+			document.removeEventListener("click", onHintClick);
+			onHintClick = null;
+		}
+		releaseFocusHold?.();
+		if (onFrameResize) {
+			window.removeEventListener("resize", onFrameResize);
+			onFrameResize = null;
+		}
+		tallestFrame = 0;
+	}
+	function isMobileHint(target) {
+		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && target.closest(HINT_BUTTON) !== null;
+	}
+	function keyboardCoversPage() {
+		const viewport = window.visualViewport?.height ?? window.innerHeight;
+		if (window.innerHeight - viewport > KEYBOARD_COVER_GAP_PX) return true;
+		if (tallestFrame - pageHeight() > KEYBOARD_COVER_GAP_PX) return true;
+		if (phoneScreenGap() > KEYBOARD_COVER_GAP_PX) return true;
+		return shrunkPhoneFrame();
+	}
+	function shrunkPhoneFrame() {
+		if (isPhoneScreen()) return false;
+		const width = pageWidth();
+		if (width <= 0 || width > 500) return false;
+		return pageHeight() < width * PORTRAIT_MIN_RATIO;
+	}
+	function pageWidth() {
+		return document.documentElement.clientWidth || window.innerWidth;
+	}
+	function pageHeight() {
+		return document.documentElement.clientHeight || window.innerHeight;
+	}
+	function isPhoneScreen() {
+		const screenHeight = window.screen?.height ?? 0;
+		const screenWidth = window.screen?.width ?? 0;
+		return screenHeight > 0 && screenHeight <= PHONE_SCREEN_MAX_PX && screenWidth <= PHONE_SCREEN_MAX_PX;
+	}
+	function phoneScreenGap() {
+		const screenHeight = window.screen?.height ?? 0;
+		const screenWidth = window.screen?.width ?? 0;
+		if (screenHeight <= 0 || screenHeight > PHONE_SCREEN_MAX_PX || screenWidth > PHONE_SCREEN_MAX_PX) return 0;
+		return screenHeight - window.innerHeight;
+	}
+	function holdAnswerFocused(input) {
+		releaseFocusHold?.();
+		const keep = (event) => {
+			if (event.type === "mousedown") event.preventDefault();
+			if (document.activeElement !== input) input.focus();
+		};
+		document.addEventListener("mousedown", keep, true);
+		input.addEventListener("blur", keep, true);
+		if (document.activeElement !== input) input.focus();
+		releaseFocusHold = () => {
+			document.removeEventListener("mousedown", keep, true);
+			input.removeEventListener("blur", keep, true);
+			releaseFocusHold = null;
+		};
+	}
+	function holdAnswerUnfocused(input) {
+		releaseFocusHold?.();
+		input.blur();
+		Object.defineProperty(input, "focus", {
+			configurable: true,
+			value: () => {}
+		});
+		releaseFocusHold = () => {
+			delete input.focus;
+			releaseFocusHold = null;
+		};
+	}
+	function releaseSoon() {
+		setTimeout(() => releaseFocusHold?.(), 0);
+	}
+	function retainAnswerKeyboard() {
+		if (!document.documentElement.classList.contains("bb-mobile-web")) return false;
+		const input = findAnswerInput();
+		if (!input) return false;
+		if (!keyboardCoversPage() && document.activeElement !== input) return false;
+		holdAnswerFocused(input);
+		return true;
+	}
+	function releaseAnswerKeyboard() {
+		releaseFocusHold?.();
+	}
+	var PROMPT_SCROLLING_CLASS = "bb-prompt-scrolling";
+	var SCROLLBAR_HOLD_MS = 700;
+	var DRAG_START_PX = 5;
+	var onScroll = null;
+	var onPointerDown = null;
+	var onPointerMove = null;
+	var onPointerUp = null;
+	var hideTimer = null;
+	var drag = null;
+	var keyboardHoldPointer = null;
+	function startPromptScroll() {
+		if (onScroll) return;
+		onScroll = (event) => {
+			if (!document.documentElement.classList.contains("bb-mobile-web")) return;
+			if (event.target !== findQuestionSection()) return;
+			showScrollbar();
+		};
+		onPointerDown = startPromptDrag;
+		onPointerMove = movePromptDrag;
+		onPointerUp = endPromptDrag;
+		document.addEventListener("scroll", onScroll, true);
+		document.addEventListener("pointerdown", onPointerDown, true);
+		document.addEventListener("pointermove", onPointerMove, true);
+		document.addEventListener("pointerup", onPointerUp, true);
+		document.addEventListener("pointercancel", onPointerUp, true);
+	}
+	function stopPromptScroll() {
+		if (onScroll) {
+			document.removeEventListener("scroll", onScroll, true);
+			onScroll = null;
+		}
+		if (onPointerDown) {
+			document.removeEventListener("pointerdown", onPointerDown, true);
+			onPointerDown = null;
+		}
+		if (onPointerMove) {
+			document.removeEventListener("pointermove", onPointerMove, true);
+			onPointerMove = null;
+		}
+		if (onPointerUp) {
+			document.removeEventListener("pointerup", onPointerUp, true);
+			document.removeEventListener("pointercancel", onPointerUp, true);
+			onPointerUp = null;
+		}
+		drag = null;
+		releaseHeldKeyboard();
+		clearHideTimer();
+		document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
+	}
+	function startPromptDrag(event) {
+		if (!isPromptPointer(event)) return;
+		const section = findQuestionSection();
+		if (!section || !dragStartsOnPrompt(event.target, section)) return;
+		if (retainAnswerKeyboard()) {
+			keyboardHoldPointer = event.pointerId;
+			if (event.pointerType === "touch") event.preventDefault();
+		}
+		if (event.pointerType === "touch" && keyboardHoldPointer !== event.pointerId) return;
+		if (section.scrollHeight <= section.clientHeight) return;
+		drag = {
+			pointerId: event.pointerId,
+			startY: event.clientY,
+			lastY: event.clientY,
+			section,
+			active: false
+		};
+	}
+	function movePromptDrag(event) {
+		if (!drag || event.pointerId !== drag.pointerId) return;
+		if (event.buttons === 0) {
+			drag = null;
+			releaseHeldKeyboard(event.pointerId);
+			return;
+		}
+		if (!drag.active) {
+			if (Math.abs(event.clientY - drag.startY) < DRAG_START_PX) return;
+			drag.active = true;
+			drag.lastY = drag.startY;
+		}
+		const delta = event.clientY - drag.lastY;
+		drag.lastY = event.clientY;
+		drag.section.scrollTop -= delta;
+	}
+	function endPromptDrag(event) {
+		if (drag?.pointerId === event.pointerId) drag = null;
+		releaseHeldKeyboard(event.pointerId);
+	}
+	function releaseHeldKeyboard(pointerId) {
+		if (keyboardHoldPointer === null) return;
+		if (pointerId !== void 0 && keyboardHoldPointer !== pointerId) return;
+		keyboardHoldPointer = null;
+		releaseAnswerKeyboard();
+	}
+	function isPromptPointer(event) {
+		return document.documentElement.classList.contains("bb-mobile-web") && event.button === 0;
+	}
+	function dragStartsOnPrompt(target, section) {
+		if (!(target instanceof Node) || !section.contains(target)) return false;
+		return !(target instanceof Element && target.closest("input, textarea, select, [role=\"slider\"]"));
+	}
+	function showScrollbar() {
+		document.documentElement.classList.add(PROMPT_SCROLLING_CLASS);
+		clearHideTimer();
+		hideTimer = setTimeout(() => {
+			document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
+			hideTimer = null;
+		}, SCROLLBAR_HOLD_MS);
+	}
+	function clearHideTimer() {
+		if (hideTimer === null) return;
+		clearTimeout(hideTimer);
+		hideTimer = null;
+	}
+	var BB_VV_HEIGHT = "--bb-vv-height";
+	var BB_VV_OFFSET_TOP = "--bb-vv-offset-top";
+	var running = false;
+	function startVisualViewportSync() {
+		stopVisualViewportSync();
+		running = true;
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.addEventListener("resize", sync);
+			vv.addEventListener("scroll", sync);
+		} else window.addEventListener("resize", sync);
+		sync();
+	}
+	function stopVisualViewportSync() {
+		const vv = window.visualViewport;
+		if (vv) {
+			vv.removeEventListener("resize", sync);
+			vv.removeEventListener("scroll", sync);
+		}
+		window.removeEventListener("resize", sync);
+		running = false;
+		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
+		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
+	}
+	function sync() {
+		if (!running) return;
+		const vv = window.visualViewport;
+		const height = vv?.height ?? window.innerHeight;
+		const offsetTop = vv?.offsetTop ?? 0;
+		const root = document.documentElement.style;
+		root.setProperty(BB_VV_HEIGHT, `${height}px`);
+		root.setProperty(BB_VV_OFFSET_TOP, `${offsetTop}px`);
+	}
+	var improvedMobileWebFeature = {
+		id: "improved-mobile-web",
+		title: "Improved web mobile experience",
+		description: "On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, no leftover gap when the keyboard closes. Desktop layouts are unchanged. More mobile polish may land under this setting later.",
+		enabledByDefault: true,
+		start() {
+			injectStyles();
+			startHintKeyboardHold();
+			startPromptScroll();
+			startMobileGate((active) => {
+				if (active) startVisualViewportSync();
+				else stopVisualViewportSync();
+			});
+		},
+		stop() {
+			stopHintKeyboardHold();
+			stopPromptScroll();
+			stopMobileGate();
+			stopVisualViewportSync();
+		}
+	};
 	function bunproSentenceIndex(sentences) {
 		const shownId = nativeSentenceId();
 		if (shownId !== null) {
@@ -2809,7 +3457,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.9.4";
+	var version = "0.10.7";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -2878,8 +3526,15 @@ input.bb-correct-guess {
 	}
 	function buildFeatureRow(feature) {
 		const description = element("p", { class: "bb-feature-desc text-small text-tertiary-fg" }, descriptionNodes(feature.description));
+		return element("li", { class: "flex items-center justify-between gap-16" }, [element("details", { class: "bb-feature-about grow" }, [buildSummary(feature.title), ...feature.credit ? [description, buildCredit(feature.credit)] : [description]]), buildSwitch(feature)]);
+	}
+	function buildSummary(title) {
 		const caret = svgIcon("bb-feature-caret", CARET_SHAPES);
-		return element("li", { class: "flex items-start justify-between gap-16" }, [element("details", { class: "bb-feature-about grow" }, [element("summary", { class: "bb-feature-about-summary font-bold" }, [element("span", {}, [feature.title]), caret]), ...feature.credit ? [description, buildCredit(feature.credit)] : [description]]), buildSwitch(feature)]);
+		const words = title.split(" ");
+		const lastWord = words.pop() ?? "";
+		const lead = words.length > 0 ? `${words.join(" ")} ` : "";
+		const tail = element("span", { class: "bb-feature-title-tail" }, [lastWord, caret]);
+		return element("summary", { class: "bb-feature-about-summary font-bold" }, lead ? [lead, tail] : [tail]);
 	}
 	function buildCredit(credit) {
 		return element("p", { class: "bb-feature-desc text-small text-tertiary-fg" }, [
@@ -2953,7 +3608,7 @@ input.bb-correct-guess {
 			"aria-haspopup": "dialog"
 		}, [element("div", {
 			class: "bp-hover-bg__child rounded-normal",
-			style: "font-size: 2.25rem;"
+			style: "font-size: 1.625rem;"
 		}, [element("div", {
 			class: "relative flex items-center justify-center",
 			style: "width: 1em; height: 1em;"
@@ -3002,6 +3657,7 @@ input.bb-correct-guess {
 	registerFeature(addSynonymFeature);
 	registerFeature(editOnLeftFeature);
 	registerFeature(hideSrsFeature);
+	registerFeature(improvedMobileWebFeature);
 	mountSettingsLaunchers();
 	mountHotkeyGuide();
 	startEnabledFeatures();

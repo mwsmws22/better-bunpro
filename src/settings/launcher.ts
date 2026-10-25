@@ -63,7 +63,8 @@ function buildToolbarButton(): HTMLElement {
     'button',
     { class: 'block', title: 'Better Bunpro settings', 'aria-haspopup': 'dialog' },
     [
-      element('div', { class: 'bp-hover-bg__child rounded-normal', style: 'font-size: 2.25rem;' }, [
+      // Bunpro’s quiz toolbar icons use 1.625rem; 2.25rem made ours visibly larger.
+      element('div', { class: 'bp-hover-bg__child rounded-normal', style: 'font-size: 1.625rem;' }, [
         element(
           'div',
           {
