@@ -8,6 +8,15 @@ export const PROMPT_SCROLLING_CLASS = 'bb-prompt-scrolling';
 const SCROLLBAR_HOLD_MS = 700;
 /** Ignore a tap that only jitters. The simulator uses the same threshold. */
 const DRAG_START_PX = 5;
+/** A short tug at the top is a scroll, not a refresh. */
+const PULL_REFRESH_PX = 80;
+
+/** The document does not scroll, so a pull from the top reloads through here. */
+export const reviewPage = {
+  reload(): void {
+    location.reload();
+  },
+};
 
 let onScroll: ((event: Event) => void) | null = null;
 let onPointerDown: ((event: PointerEvent) => void) | null = null;
@@ -18,6 +27,13 @@ let drag: PromptDrag | null = null;
 let keyboardHoldPointer: number | null = null;
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
 let releaseOnClick: (() => void) | null = null;
+let pull: PromptPull | null = null;
+
+interface PromptPull {
+  pointerId: number;
+  startY: number;
+  section: HTMLElement;
+}
 
 interface PromptDrag {
   pointerId: number;
@@ -69,6 +85,7 @@ export function stopPromptScroll(): void {
     onPointerUp = null;
   }
   drag = null;
+  pull = null;
   clearKeyboardRelease();
   releaseHeldKeyboard();
   clearHideTimer();
@@ -90,6 +107,7 @@ function startPromptDrag(event: PointerEvent): void {
     return;
   }
   clearKeyboardRelease();
+  rememberPull(event, section);
   if (retainAnswerKeyboard()) {
     keyboardHoldPointer = event.pointerId;
     if (event.pointerType === 'touch') {
@@ -133,10 +151,38 @@ function movePromptDrag(event: PointerEvent): void {
 }
 
 function endPromptDrag(event: PointerEvent): void {
+  refreshIfPulled(event);
   if (drag?.pointerId === event.pointerId) {
     drag = null;
   }
   holdKeyboardThroughClick(event.pointerId);
+}
+
+/**
+ * The root no longer scrolls, so the browser cannot refresh from an overscroll.
+ * A touch that starts at the top of the prompt and pulls down reloads instead.
+ * Mouse drags belong to the simulator and keep scrolling the prompt.
+ */
+function rememberPull(event: PointerEvent, section: HTMLElement): void {
+  if (event.pointerType !== 'touch' || section.scrollTop > 0) {
+    return;
+  }
+  pull = { pointerId: event.pointerId, startY: event.clientY, section };
+}
+
+function refreshIfPulled(event: PointerEvent): void {
+  if (!pull || pull.pointerId !== event.pointerId) {
+    return;
+  }
+  const { startY, section } = pull;
+  pull = null;
+  if (event.type === 'pointercancel' || section.scrollTop > 0) {
+    return;
+  }
+  if (event.clientY - startY < PULL_REFRESH_PX) {
+    return;
+  }
+  reviewPage.reload();
 }
 
 /**

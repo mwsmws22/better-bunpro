@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { improvedMobileWebFeature } from './feature';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
-import { PROMPT_SCROLLING_CLASS } from './prompt-scroll';
+import { PROMPT_SCROLLING_CLASS, reviewPage } from './prompt-scroll';
 import { BB_VV_HEIGHT } from './visual-viewport';
 
 describe('improvedMobileWebFeature', () => {
@@ -30,6 +30,7 @@ describe('improvedMobileWebFeature', () => {
     document.documentElement.className = '';
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -44,7 +45,10 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('justify-content: safe center');
     expect(styles).toContain('touch-action: pan-y');
     expect(styles).toContain('overscroll-behavior-y: auto');
-    expect(styles).toContain('margin-bottom: 1px');
+    expect(styles).toContain('position: fixed');
+    expect(styles).toContain('height: var(--bb-vv-height, 100dvh)');
+    expect(styles).not.toContain('margin-bottom: 1px');
+    expect(styles).not.toContain('height: auto');
     expect(styles).not.toContain('overscroll-behavior: contain');
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
     expect(styles).toContain(
@@ -193,15 +197,96 @@ describe('improvedMobileWebFeature', () => {
     expect(document.activeElement).not.toBe(input);
   });
 
-  it('lets a typed answer leave the field when it is submitted', () => {
+  it('keeps the answer focused when a graded answer is submitted', () => {
+    vi.useFakeTimers();
     const { input, button } = mountEmptySubmit();
     input.value = 'ねる';
     input.focus();
     button.addEventListener('mousedown', () => input.blur());
+    button.addEventListener('click', () => input.blur());
+
+    pressSubmit(button);
+
+    expect(document.activeElement).toBe(input);
+    vi.advanceTimersByTime(0);
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('keeps the answer focused when Enter submits a graded answer', () => {
+    vi.useFakeTimers();
+    const { input } = mountEmptySubmit();
+    input.value = 'ねる';
+    input.focus();
+    input.addEventListener('keydown', () => input.blur());
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(document.activeElement).toBe(input);
+    vi.advanceTimersByTime(0);
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('does not open the keyboard when a graded answer is submitted with it hidden', () => {
+    const { input, button } = mountEmptySubmit();
+    input.value = 'ねる';
 
     pressSubmit(button);
 
     expect(document.activeElement).not.toBe(input);
+  });
+
+  it('focuses the answer field when a review page loads', () => {
+    const input = mountReview();
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('focuses the answer field when it appears on a review', async () => {
+    document.body.innerHTML = reviewMarkup(1);
+    improvedMobileWebFeature.start();
+    const input = document.createElement('input');
+    input.id = 'js-manual-input';
+    document.body.append(input);
+
+    await flushObservers();
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('does not reopen the keyboard after the back gesture dismisses it', async () => {
+    const input = mountReview();
+    input.blur();
+    document.getElementById('quiz-metadata-element')!.setAttribute('data-meta-is-correct', 'true');
+    document.body.append(document.createElement('span'));
+
+    await flushObservers();
+
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('focuses the answer field again on the next review', async () => {
+    const input = mountReview(1);
+    input.blur();
+    document.getElementById('quiz-metadata-element')!.setAttribute(
+      'data-meta-info',
+      JSON.stringify({ id: 2, type: 'vocab' }),
+    );
+
+    await flushObservers();
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('focuses the answer field again when the review page loads again', () => {
+    const input = mountReview();
+    input.blur();
+
+    improvedMobileWebFeature.stop();
+    improvedMobileWebFeature.start();
+
+    expect(document.activeElement).toBe(input);
   });
 
   it('paints a given-up blank incorrect and leaves a correct answer green', () => {
@@ -351,6 +436,32 @@ describe('improvedMobileWebFeature', () => {
     expect(document.activeElement).not.toBe(input);
   });
 
+  it('reloads the page when a touch pulls down from the top of the prompt', () => {
+    const reload = vi.spyOn(reviewPage, 'reload').mockImplementation(() => {});
+    const section = mountScrollablePrompt();
+    improvedMobileWebFeature.start();
+
+    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
+    section.dispatchEvent(pointerAt('pointerup', 'touch', 40 + 80, 0));
+
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it('does not reload when the pull is short or the prompt is already scrolled', () => {
+    const reload = vi.spyOn(reviewPage, 'reload').mockImplementation(() => {});
+    const section = mountScrollablePrompt();
+    improvedMobileWebFeature.start();
+
+    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
+    section.dispatchEvent(pointerAt('pointerup', 'touch', 60, 0));
+    expect(reload).not.toHaveBeenCalled();
+
+    section.scrollTop = 30;
+    section.dispatchEvent(pointerAt('pointerdown', 'touch', 40, 1));
+    section.dispatchEvent(pointerAt('pointerup', 'touch', 200, 0));
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it('does not focus the answer field when dragging with the keyboard hidden', () => {
     const section = mountScrollablePrompt();
     const input = document.createElement('input');
@@ -412,6 +523,30 @@ function pointerAt(type: string, pointerType: string, clientY: number, buttons: 
     buttons,
     clientY,
   });
+}
+
+function reviewMarkup(id: number, session = 'session-1'): string {
+  return `
+    <div id="quiz-metadata-element"
+      data-meta-session-id="${session}"
+      data-meta-info='{"id":${id},"type":"vocab"}'
+      data-meta-input-mode="manual"></div>
+  `;
+}
+
+function mountReview(id = 1): HTMLInputElement {
+  document.body.innerHTML = `
+    ${reviewMarkup(id)}
+    <input id="js-manual-input" />
+  `;
+  improvedMobileWebFeature.start();
+  return document.getElementById('js-manual-input') as HTMLInputElement;
+}
+
+async function flushObservers(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 function mountEmptySubmit(): { input: HTMLInputElement; button: HTMLButtonElement } {

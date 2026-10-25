@@ -22,8 +22,6 @@ export const improvedMobileWebFeature: Feature = {
 
   start() {
     injectStyles();
-    startHintKeyboardHold();
-    startPromptScroll();
     startMobileGate((active) => {
       if (active) {
         startVisualViewportSync();
@@ -31,6 +29,8 @@ export const improvedMobileWebFeature: Feature = {
         stopVisualViewportSync();
       }
     });
+    startHintKeyboardHold();
+    startPromptScroll();
   },
 
   stop() {
