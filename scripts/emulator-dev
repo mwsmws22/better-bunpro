@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Dev Better Bunpro inside the Android emulator. One command, no agents.
+#
+# Firefox blocks http://10.0.2.2 on https://bunpro.jp (mixed content).
+# It allows http://127.0.0.1. adb reverse makes the emulator's 127.0.0.1:5173
+# the Vite server on this machine.
+#
+#   ./scripts/emulator-dev
+# Then in the emulator Firefox, open the URL it prints and install the script.
+# Disable the built "Better Bunpro" script while "server:Better Bunpro" is on.
+# Reload bunpro.jp after src edits. Reinstall only if the userscript header changes.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PORT=5173
+SERIAL="${ANDROID_SERIAL:-emulator-5554}"
+ADB="${ADB:-adb}"
+INSTALL_PATH="/__vite-plugin-monkey.install.user.js"
+
+if ! "$ADB" -s "$SERIAL" get-state >/dev/null 2>&1; then
+  echo "Emulator ${SERIAL} is not connected." >&2
+  exit 1
+fi
+
+listening() {
+  ss -ltn | grep -qE ":${PORT}[[:space:]]"
+}
+
+if ! listening; then
+  mkdir -p "${ROOT}/.tmp"
+  echo "Starting Vite on 0.0.0.0:${PORT}"
+  (
+    cd "$ROOT"
+    nohup npm run dev -- --host 0.0.0.0 --port "$PORT" \
+      >"${ROOT}/.tmp/vite-emulator.log" 2>&1 &
+  )
+  for _ in $(seq 1 50); do
+    if curl -sf -o /dev/null "http://127.0.0.1:${PORT}${INSTALL_PATH}"; then
+      break
+    fi
+    sleep 0.1
+  done
+fi
+
+if ! curl -sf -o /dev/null "http://127.0.0.1:${PORT}${INSTALL_PATH}"; then
+  echo "Vite is not answering on 127.0.0.1:${PORT}" >&2
+  exit 1
+fi
+
+"$ADB" -s "$SERIAL" reverse "tcp:${PORT}" "tcp:${PORT}" >/dev/null
+echo "http://127.0.0.1:${PORT}${INSTALL_PATH}"

@@ -16,6 +16,8 @@ let onPointerUp: ((event: PointerEvent) => void) | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let drag: PromptDrag | null = null;
 let keyboardHoldPointer: number | null = null;
+let releaseTimer: ReturnType<typeof setTimeout> | null = null;
+let releaseOnClick: (() => void) | null = null;
 
 interface PromptDrag {
   pointerId: number;
@@ -67,6 +69,7 @@ export function stopPromptScroll(): void {
     onPointerUp = null;
   }
   drag = null;
+  clearKeyboardRelease();
   releaseHeldKeyboard();
   clearHideTimer();
   document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
@@ -86,6 +89,7 @@ function startPromptDrag(event: PointerEvent): void {
   if (!section || !dragStartsOnPrompt(event.target, section)) {
     return;
   }
+  clearKeyboardRelease();
   if (retainAnswerKeyboard()) {
     keyboardHoldPointer = event.pointerId;
     if (event.pointerType === 'touch') {
@@ -113,7 +117,7 @@ function movePromptDrag(event: PointerEvent): void {
   }
   if (event.buttons === 0) {
     drag = null;
-    releaseHeldKeyboard(event.pointerId);
+    holdKeyboardThroughClick(event.pointerId);
     return;
   }
   if (!drag.active) {
@@ -132,7 +136,42 @@ function endPromptDrag(event: PointerEvent): void {
   if (drag?.pointerId === event.pointerId) {
     drag = null;
   }
-  releaseHeldKeyboard(event.pointerId);
+  holdKeyboardThroughClick(event.pointerId);
+}
+
+/**
+ * pointerup is not the end of a tap. Firefox Android blurs the answer field
+ * on the click that follows, and that hides the keyboard. The app only hides
+ * it on the system back gesture, so the focus hold stays through that click
+ * and then drops. A later blur is the back gesture and must stand.
+ */
+function holdKeyboardThroughClick(pointerId: number): void {
+  if (keyboardHoldPointer !== pointerId) {
+    return;
+  }
+  clearKeyboardRelease();
+  const release = () => {
+    finishKeyboardHold(pointerId);
+  };
+  releaseOnClick = release;
+  document.addEventListener('click', release, false);
+  releaseTimer = setTimeout(release, 0);
+}
+
+function finishKeyboardHold(pointerId: number): void {
+  clearKeyboardRelease();
+  releaseHeldKeyboard(pointerId);
+}
+
+function clearKeyboardRelease(): void {
+  if (releaseTimer !== null) {
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
+  }
+  if (releaseOnClick) {
+    document.removeEventListener('click', releaseOnClick, false);
+    releaseOnClick = null;
+  }
 }
 
 function releaseHeldKeyboard(pointerId?: number): void {

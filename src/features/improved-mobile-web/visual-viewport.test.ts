@@ -5,6 +5,7 @@ import {
   BB_VV_OFFSET_TOP,
   startVisualViewportSync,
   stopVisualViewportSync,
+  visibleShell,
 } from './visual-viewport';
 
 type VvStub = {
@@ -25,10 +26,28 @@ function stubVisualViewport(height: number, offsetTop = 0): VvStub {
   return vv;
 }
 
+describe('visibleShell', () => {
+  it('keeps the emulator shell when the visual viewport already matches the layout', () => {
+    expect(visibleShell(500, 500, 0)).toEqual({ height: 500, offsetTop: 0 });
+  });
+
+  it('stays above an overlay keyboard when the visual viewport is shorter and offsetTop is set', () => {
+    // Phone: layout viewport stays 800, visual viewport is the 500px above the
+    // keyboard, and offsetTop is 40. A top-aligned 500px shell ends above the
+    // keyboard. Shifting it by 40 would put the answer bar at 540, into the keys.
+    expect(visibleShell(800, 500, 40)).toEqual({ height: 500, offsetTop: 0 });
+  });
+
+  it('shortens a layout-tall visual viewport by offsetTop', () => {
+    expect(visibleShell(800, 800, 280)).toEqual({ height: 520, offsetTop: 0 });
+  });
+});
+
 describe('visualViewport sync', () => {
   beforeEach(() => {
     document.documentElement.style.removeProperty(BB_VV_HEIGHT);
     document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
+    vi.stubGlobal('innerHeight', 800);
   });
 
   afterEach(() => {
@@ -38,12 +57,21 @@ describe('visualViewport sync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('writes height and offset CSS vars from visualViewport', () => {
-    stubVisualViewport(500, 12);
+  it('writes a top-aligned shell when the visual viewport is shorter than the layout', () => {
+    stubVisualViewport(500, 40);
     startVisualViewportSync();
 
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('500px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('12px');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('0px');
+  });
+
+  it('writes the visual height unchanged when it already matches the layout viewport', () => {
+    vi.stubGlobal('innerHeight', 500);
+    stubVisualViewport(500, 0);
+    startVisualViewportSync();
+
+    expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('500px');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('0px');
   });
 
   it('listens for resize and scroll on visualViewport', () => {
@@ -66,7 +94,7 @@ describe('visualViewport sync', () => {
     resizeHandler();
 
     expect(document.documentElement.style.getPropertyValue(BB_VV_HEIGHT)).toBe('320px');
-    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('40px');
+    expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('0px');
   });
 
   it('falls back to window.innerHeight when visualViewport is missing', () => {

@@ -44,6 +44,18 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('justify-content: safe center');
     expect(styles).toContain('touch-action: pan-y');
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
+    expect(styles).toContain(
+      'html.bb-mobile-web #js-quiz .bp-quiz-question button::before {\n  bottom: 0.4em !important;\n}',
+    );
+    expect(styles).toContain(
+      [
+        'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before,',
+        'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,',
+        'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {',
+        '  bottom: 0 !important;',
+        '}',
+      ].join('\n'),
+    );
   });
 
   it('clears the mobile marker and viewport vars when stopped', () => {
@@ -211,6 +223,40 @@ describe('improvedMobileWebFeature', () => {
     section.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 
     expect(document.activeElement).toBe(input);
+  });
+
+  it('keeps the answer focused when a prompt tap blurs after pointerup', () => {
+    const section = mountScrollablePrompt();
+    const input = document.createElement('input');
+    input.id = 'js-manual-input';
+    document.body.append(input);
+    improvedMobileWebFeature.start();
+    input.focus();
+
+    section.addEventListener('mousedown', () => input.blur());
+    section.dispatchEvent(pointerAt('pointerdown', 'touch', 80, 1));
+    section.dispatchEvent(pointerAt('pointerup', 'touch', 80, 0));
+    section.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    expect(document.activeElement).toBe(input);
+
+    section.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('does not open the keyboard when the prompt is tapped while it is hidden', () => {
+    const section = mountScrollablePrompt();
+    const input = document.createElement('input');
+    input.id = 'js-manual-input';
+    document.body.append(input);
+    improvedMobileWebFeature.start();
+
+    section.dispatchEvent(pointerAt('pointerdown', 'touch', 80, 1));
+    section.dispatchEvent(pointerAt('pointerup', 'touch', 80, 0));
+    section.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(document.activeElement).not.toBe(input);
   });
 
   it('does not focus the answer field when dragging with the keyboard hidden', () => {

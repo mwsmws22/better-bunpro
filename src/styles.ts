@@ -299,7 +299,8 @@ html.bb-mobile-web #js-quiz .bp-quiz-question * {
 }
 /* Underline is before:bottom-4 on the blank. This line box keeps it under the kana.
    Empty, the line sits up on the sentence. Once a kana is typed, it drops so
-   the glyph clears the line. The line box itself stays put. */
+   the glyph clears the line. A graded blank swaps the typed color for
+   text-correct or text-incorrect; keep that same low line. The line box itself stays put. */
 html.bb-mobile-web #js-quiz .bp-quiz-question button,
 html.bb-mobile-web #js-quiz .bp-quiz-question button * {
   line-height: 2.125rem !important;
@@ -307,7 +308,9 @@ html.bb-mobile-web #js-quiz .bp-quiz-question button * {
 html.bb-mobile-web #js-quiz .bp-quiz-question button::before {
   bottom: 0.4em !important;
 }
-html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before {
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)::before,
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,
+html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {
   bottom: 0 !important;
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
