@@ -8,7 +8,7 @@ const HINT_BUTTON = 'button[title="Toggle the hint level"]';
  * visualViewport below innerHeight. The mobile simulator shrinks the iframe
  * instead, so the tallest frame height seen this session is the uncovered page.
  */
-const KEYBOARD_COVER_GAP_PX = 120;
+export const KEYBOARD_COVER_GAP_PX = 120;
 /** Above this, screen.height is a desktop monitor, not a spoofed phone. */
 const PHONE_SCREEN_MAX_PX = 1000;
 /**

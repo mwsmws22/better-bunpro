@@ -1,3 +1,5 @@
+import { forgetUncoveredViewport, viewportBehindKeyboard } from './fullscreen-keyboard';
+
 export const BB_VV_HEIGHT = '--bb-vv-height';
 export const BB_VV_OFFSET_TOP = '--bb-vv-offset-top';
 
@@ -24,6 +26,7 @@ export function stopVisualViewportSync(): void {
   }
   window.removeEventListener('resize', sync);
   running = false;
+  forgetUncoveredViewport();
   document.documentElement.style.removeProperty(BB_VV_HEIGHT);
   document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
 }
@@ -33,7 +36,7 @@ function sync(): void {
     return;
   }
   const vv = window.visualViewport;
-  const height = vv?.height ?? window.innerHeight;
+  const height = vv ? vv.height - viewportBehindKeyboard(vv) : window.innerHeight;
   const offsetTop = vv?.offsetTop ?? 0;
   const root = document.documentElement.style;
   root.setProperty(BB_VV_HEIGHT, `${height}px`);

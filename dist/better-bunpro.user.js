@@ -3095,7 +3095,6 @@ input.bb-correct-guess {
 		document.documentElement.classList.remove(MOBILE_WEB_CLASS);
 	}
 	var HINT_BUTTON = "button[title=\"Toggle the hint level\"]";
-	var KEYBOARD_COVER_GAP_PX = 120;
 	var PHONE_SCREEN_MAX_PX = 1e3;
 	var PORTRAIT_MIN_RATIO = 1.65;
 	var onHintPointerDown = null;
@@ -3148,9 +3147,9 @@ input.bb-correct-guess {
 	}
 	function keyboardCoversPage() {
 		const viewport = window.visualViewport?.height ?? window.innerHeight;
-		if (window.innerHeight - viewport > KEYBOARD_COVER_GAP_PX) return true;
-		if (tallestFrame - pageHeight() > KEYBOARD_COVER_GAP_PX) return true;
-		if (phoneScreenGap() > KEYBOARD_COVER_GAP_PX) return true;
+		if (window.innerHeight - viewport > 120) return true;
+		if (tallestFrame - pageHeight() > 120) return true;
+		if (phoneScreenGap() > 120) return true;
 		return shrunkPhoneFrame();
 	}
 	function shrunkPhoneFrame() {
@@ -3443,6 +3442,26 @@ input.bb-correct-guess {
 		clearTimeout(hideTimer);
 		hideTimer = null;
 	}
+	var uncoveredHeight = 0;
+	function viewportBehindKeyboard(vv) {
+		if (!keyboardCoversScreen(vv.height)) {
+			uncoveredHeight = vv.height;
+			return 0;
+		}
+		return pageUnderNavigationBar() ? 24 : 0;
+	}
+	function forgetUncoveredViewport() {
+		uncoveredHeight = 0;
+	}
+	function keyboardCoversScreen(height) {
+		return window.screen.height - height > 120;
+	}
+	function pageUnderNavigationBar() {
+		return isFullscreenApp() && uncoveredHeight >= window.screen.height - 1;
+	}
+	function isFullscreenApp() {
+		return window.matchMedia?.("(display-mode: fullscreen)").matches ?? false;
+	}
 	var BB_VV_HEIGHT = "--bb-vv-height";
 	var BB_VV_OFFSET_TOP = "--bb-vv-offset-top";
 	var running = false;
@@ -3464,13 +3483,14 @@ input.bb-correct-guess {
 		}
 		window.removeEventListener("resize", sync);
 		running = false;
+		forgetUncoveredViewport();
 		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
 		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
 	}
 	function sync() {
 		if (!running) return;
 		const vv = window.visualViewport;
-		const height = vv?.height ?? window.innerHeight;
+		const height = vv ? vv.height - viewportBehindKeyboard(vv) : window.innerHeight;
 		const offsetTop = vv?.offsetTop ?? 0;
 		const root = document.documentElement.style;
 		root.setProperty(BB_VV_HEIGHT, `${height}px`);
