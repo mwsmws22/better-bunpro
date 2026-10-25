@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.10
+// @version      0.10.11
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -718,24 +718,20 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-/* Pin the shell to the visible viewport. Letting the root grow with the
-   layout viewport, and adding a 1px body margin so it can scroll, turns into
-   an empty region under the answer bar once the keyboard overlays the page.
-   A pull down from the top of the prompt reloads the page instead. */
-html.bb-mobile-web {
-  height: var(--bb-vv-height, 100dvh);
-  max-height: var(--bb-vv-height, 100dvh);
-  overflow: hidden;
-}
+/* The document does not scroll. It stays pinned to the top of the visible
+   viewport: no extra height, no margin, and no offset. A pull down from the
+   top of the prompt reloads the page. */
+html.bb-mobile-web,
 html.bb-mobile-web body {
   position: fixed;
+  top: 0;
   left: 0;
   width: 100%;
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
-  overflow: hidden;
   margin: 0;
-  top: var(--bb-vv-offset-top, 0px);
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 html.bb-mobile-web #js-page-top {
   min-height: 0 !important;
@@ -782,9 +778,9 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-y: auto;
   overflow-anchor: none;
   /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
-     A pull down from the top reloads the page. The root does not scroll. */
+     A pull down from the top reloads the page. Overscroll stays in this scroller. */
   touch-action: pan-y;
-  overscroll-behavior-y: auto;
+  overscroll-behavior: none;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
@@ -3486,6 +3482,7 @@ input.bb-correct-guess {
 			vv.addEventListener("resize", sync);
 			vv.addEventListener("scroll", sync);
 		} else window.addEventListener("resize", sync);
+		window.addEventListener("scroll", sync);
 		sync();
 	}
 	function stopVisualViewportSync() {
@@ -3495,24 +3492,56 @@ input.bb-correct-guess {
 			vv.removeEventListener("scroll", sync);
 		}
 		window.removeEventListener("resize", sync);
+		window.removeEventListener("scroll", sync);
 		running = false;
 		document.documentElement.style.removeProperty(BB_VV_HEIGHT);
 		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
+		restoreLayoutViewport();
 	}
-	function visibleShell(layoutHeight, visualHeight, visualOffsetTop) {
+	function visibleShell(layoutHeight, visualHeight) {
 		return {
-			height: Math.min(visualHeight, Math.max(0, layoutHeight - Math.max(0, visualOffsetTop))),
+			height: Math.max(0, Math.min(visualHeight, layoutHeight)),
 			offsetTop: 0
 		};
 	}
+	function withoutDeviceHeight(content) {
+		return content.split(",").map((part) => part.trim()).filter((part) => part.length > 0 && part.toLowerCase() !== "height=device-height").join(", ");
+	}
+	var viewportContent = null;
+	var pinningScroll = false;
 	function sync() {
 		if (!running) return;
 		const vv = window.visualViewport;
 		const layoutHeight = window.innerHeight;
-		const shell = visibleShell(layoutHeight, vv?.height ?? layoutHeight, vv?.offsetTop ?? 0);
-		const root = document.documentElement.style;
-		root.setProperty(BB_VV_HEIGHT, `${shell.height}px`);
-		root.setProperty(BB_VV_OFFSET_TOP, `${shell.offsetTop}px`);
+		const shell = visibleShell(layoutHeight, vv?.height ?? layoutHeight);
+		document.documentElement.style.setProperty(BB_VV_HEIGHT, `${shell.height}px`);
+		document.documentElement.style.removeProperty(BB_VV_OFFSET_TOP);
+		pinLayoutViewport();
+		pinDocumentScroll();
+	}
+	function pinLayoutViewport() {
+		const meta = document.querySelector("meta[name=\"viewport\"]");
+		if (!(meta instanceof HTMLMetaElement)) return;
+		if (viewportContent === null) viewportContent = meta.content;
+		const next = withoutDeviceHeight(viewportContent);
+		if (meta.content !== next) meta.content = next;
+	}
+	function restoreLayoutViewport() {
+		const meta = document.querySelector("meta[name=\"viewport\"]");
+		if (viewportContent !== null && meta instanceof HTMLMetaElement) meta.content = viewportContent;
+		viewportContent = null;
+	}
+	function pinDocumentScroll() {
+		if (pinningScroll) return;
+		const scrolling = document.scrollingElement ?? null;
+		if (!((window.scrollX || 0) !== 0 || (window.scrollY || 0) !== 0 || (scrolling?.scrollTop || 0) !== 0 || (scrolling?.scrollLeft || 0) !== 0)) return;
+		pinningScroll = true;
+		window.scrollTo(0, 0);
+		if (scrolling) {
+			scrolling.scrollTop = 0;
+			scrolling.scrollLeft = 0;
+		}
+		pinningScroll = false;
 	}
 	var improvedMobileWebFeature = {
 		id: "improved-mobile-web",
@@ -3647,7 +3676,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.10";
+	var version = "0.10.11";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
