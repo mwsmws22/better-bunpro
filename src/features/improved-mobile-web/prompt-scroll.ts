@@ -1,4 +1,5 @@
 import { findQuestionSection } from '../../bunpro/quiz-dom';
+import { watchBodyRemounts } from '../../dom/remount';
 import { releaseAnswerKeyboard, retainAnswerKeyboard } from './hint-keyboard';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
 
@@ -28,6 +29,8 @@ let keyboardHoldPointer: number | null = null;
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
 let releaseOnClick: (() => void) | null = null;
 let pull: PromptPull | null = null;
+let stopWatchingPrompts: (() => void) | null = null;
+let onViewportResize: (() => void) | null = null;
 
 interface PromptPull {
   pointerId: number;
@@ -64,6 +67,11 @@ export function startPromptScroll(): void {
   document.addEventListener('pointermove', onPointerMove, true);
   document.addEventListener('pointerup', onPointerUp, true);
   document.addEventListener('pointercancel', onPointerUp, true);
+  onViewportResize = resetPromptScrollIfFitting;
+  window.addEventListener('resize', onViewportResize);
+  window.visualViewport?.addEventListener('resize', onViewportResize);
+  stopWatchingPrompts = watchBodyRemounts(resetPromptScrollIfFitting);
+  resetPromptScrollIfFitting();
 }
 
 export function stopPromptScroll(): void {
@@ -84,12 +92,26 @@ export function stopPromptScroll(): void {
     document.removeEventListener('pointercancel', onPointerUp, true);
     onPointerUp = null;
   }
+  if (onViewportResize) {
+    window.removeEventListener('resize', onViewportResize);
+    window.visualViewport?.removeEventListener('resize', onViewportResize);
+    onViewportResize = null;
+  }
+  stopWatchingPrompts?.();
+  stopWatchingPrompts = null;
   drag = null;
   pull = null;
   clearKeyboardRelease();
   releaseHeldKeyboard();
   clearHideTimer();
   document.documentElement.classList.remove(PROMPT_SCROLLING_CLASS);
+}
+
+function resetPromptScrollIfFitting(): void {
+  const section = findQuestionSection();
+  if (section && section.scrollHeight <= section.clientHeight) {
+    section.scrollTop = 0;
+  }
 }
 
 /**

@@ -51,7 +51,6 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('position: fixed');
     expect(styles).toContain('height: var(--bb-vv-height, 100dvh)');
     expect(styles).not.toContain('margin-bottom: 1px');
-    expect(styles).not.toContain('height: auto');
     expect(styles).not.toContain('bb-vv-offset-top');
     expect(document.documentElement.style.getPropertyValue(BB_VV_OFFSET_TOP)).toBe('');
     const root = rootShellRule(styles);
@@ -61,6 +60,24 @@ describe('improvedMobileWebFeature', () => {
     expect(root).toContain('margin: 0');
     expect(root).toContain('top: 0');
     expect(root).not.toContain('margin-bottom');
+    const page = ruleFor(styles, 'html.bb-mobile-web #js-page-top');
+    expect(page).toContain('display: flex');
+    expect(page).toContain('flex-direction: column');
+    expect(page).toContain('height: var(--bb-vv-height, 100dvh)');
+    const quiz = ruleFor(styles, 'html.bb-mobile-web #js-quiz');
+    expect(quiz).toContain('flex: 1 1 0');
+    expect(quiz).toContain('height: auto');
+    expect(quiz).not.toContain('var(--bb-vv-height');
+    const article = ruleFor(
+      styles,
+      'html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container)',
+    );
+    expect(article).toContain('min-height: 0');
+    expect(article).toContain('height: 100%');
+    expect(article).not.toContain('var(--bb-vv-height');
+    expect(styles).toContain(
+      'article:not(.bp-reviewable-root):not(.bp-modal-container) > footer {\n  flex: 0 0 auto;',
+    );
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
     expect(styles).toContain(
       'html.bb-mobile-web #js-quiz .bp-quiz-question button::before {\n  bottom: 0.4em !important;\n}',
@@ -398,6 +415,30 @@ describe('improvedMobileWebFeature', () => {
     expect(section.scrollTop).toBe(0);
   });
 
+  it('returns the prompt to the top when a viewport resize makes it fit', () => {
+    let scrollHeight = 400;
+    let clientHeight = 100;
+    const section = mountPromptWithGeometry(
+      () => scrollHeight,
+      () => clientHeight,
+    );
+    const viewport = window.visualViewport as VisualViewport & {
+      addEventListener: ReturnType<typeof vi.fn>;
+    };
+    improvedMobileWebFeature.start();
+    section.scrollTop = 70;
+
+    scrollHeight = 90;
+    clientHeight = 120;
+    for (const [, listener] of viewport.addEventListener.mock.calls.filter(
+      ([type]) => type === 'resize',
+    )) {
+      listener(new Event('resize'));
+    }
+
+    expect(section.scrollTop).toBe(0);
+  });
+
   it('keeps the answer focused when the prompt is dragged with the keyboard up', () => {
     vi.stubGlobal('innerWidth', 390);
     vi.stubGlobal('innerHeight', 480);
@@ -522,14 +563,27 @@ function rootShellRule(styles: string): string {
   return styles.slice(start, end);
 }
 
+function ruleFor(styles: string, selector: string): string {
+  const start = styles.indexOf(`${selector} {`);
+  const end = styles.indexOf('}', start);
+  return styles.slice(start, end + 1);
+}
+
 function mountScrollablePrompt(): HTMLElement {
+  return mountPromptWithGeometry(() => 400, () => 100);
+}
+
+function mountPromptWithGeometry(
+  scrollHeight: () => number,
+  clientHeight: () => number,
+): HTMLElement {
   document.body.innerHTML = `
     <div id="js-quiz"><article><section><p>prompt</p></section></article></div>
   `;
   const section = document.querySelector('section') as HTMLElement;
   let top = 0;
-  Object.defineProperty(section, 'scrollHeight', { configurable: true, get: () => 400 });
-  Object.defineProperty(section, 'clientHeight', { configurable: true, get: () => 100 });
+  Object.defineProperty(section, 'scrollHeight', { configurable: true, get: scrollHeight });
+  Object.defineProperty(section, 'clientHeight', { configurable: true, get: clientHeight });
   Object.defineProperty(section, 'scrollTop', {
     configurable: true,
     get: () => top,

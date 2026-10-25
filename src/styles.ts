@@ -211,34 +211,39 @@ html.bb-mobile-web body {
   overscroll-behavior: none;
 }
 html.bb-mobile-web #js-page-top {
+  display: flex;
+  flex-direction: column;
   min-height: 0 !important;
   height: var(--bb-vv-height, 100dvh) !important;
   max-height: var(--bb-vv-height, 100dvh) !important;
   overflow: hidden;
 }
 html.bb-mobile-web #js-quiz {
+  flex: 1 1 0;
   min-height: 0 !important;
-  height: var(--bb-vv-height, 100dvh) !important;
-  max-height: var(--bb-vv-height, 100dvh) !important;
+  height: auto !important;
+  max-height: none !important;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 html.bb-mobile-web #js-quiz > div:not(#quiz-metadata-element) {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
   max-height: none;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   align-items: stretch;
 }
 html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-container) {
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
-  min-height: var(--bb-vv-height, 100dvh) !important;
-  height: var(--bb-vv-height, 100dvh) !important;
-  max-height: var(--bb-vv-height, 100dvh) !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
   width: 100%;
   max-width: 100%;
   display: flex;
