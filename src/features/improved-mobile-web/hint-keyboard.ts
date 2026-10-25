@@ -1,4 +1,4 @@
-import { findAnswerInput } from '../../bunpro/quiz-dom';
+import { findAnswerInput, findSubmitButton } from '../../bunpro/quiz-dom';
 import { MOBILE_WEB_CLASS } from './mobile-gate';
 
 const HINT_BUTTON = 'button[title="Toggle the hint level"]';
@@ -18,41 +18,53 @@ const PHONE_SCREEN_MAX_PX = 1000;
  */
 const PORTRAIT_MIN_RATIO = 1.65;
 
+/** If the empty-submit click never arrives, drop the hold so Back can blur. */
+const EMPTY_SUBMIT_FALLBACK_MS = 700;
+
 let onHintPointerDown: ((event: Event) => void) | null = null;
 let onHintClick: ((event: Event) => void) | null = null;
+let onAnswerKeyDown: ((event: KeyboardEvent) => void) | null = null;
+let onEmptySubmitPointerUp: ((event: Event) => void) | null = null;
+let onEmptySubmitPointerCancel: ((event: Event) => void) | null = null;
 let onFrameResize: (() => void) | null = null;
 let releaseFocusHold: (() => void) | null = null;
+let emptySubmitHolding = false;
+let emptySubmitHold: (() => void) | null = null;
+let emptySubmitFallback: ReturnType<typeof setTimeout> | null = null;
 let tallestFrame = 0;
 
 /**
- * Hint taps leave the keyboard where it is. While it covers the page, the
- * answer field keeps focus so the keyboard stays up. While it is hidden,
- * Bunpro's hint click must not focus the field, or the keyboard opens and
- * closes again.
+ * Hint taps and empty submits leave the keyboard where it is. While it covers
+ * the page, the answer field keeps focus so the keyboard stays up. While it is
+ * hidden, a hint click must not focus the field, or the keyboard opens and
+ * closes again. An empty submit does not focus a field that was already idle.
  */
 export function startHintKeyboardHold(): void {
   if (onHintPointerDown) {
     return;
   }
   onHintPointerDown = (event: Event) => {
-    if (!isMobileHint(event.target)) {
+    if (holdHintKeyboard(event.target)) {
       return;
     }
-    const input = findAnswerInput();
-    if (!input) {
-      return;
-    }
-    if (keyboardCoversPage()) {
-      holdAnswerFocused(input);
-      return;
-    }
-    holdAnswerUnfocused(input);
+    holdEmptySubmitKeyboard(event.target);
   };
   onHintClick = (event: Event) => {
-    if (!isMobileHint(event.target)) {
+    if (isMobileHint(event.target)) {
+      releaseSoon();
       return;
     }
-    releaseSoon();
+    releaseEmptySubmitAfterClick(event.target);
+  };
+  onAnswerKeyDown = holdEmptySubmitOnEnter;
+  onEmptySubmitPointerUp = (event: Event) => {
+    if (!emptySubmitHolding || isEmptyAnswerSubmit(event.target)) {
+      return;
+    }
+    releaseEmptySubmitHold();
+  };
+  onEmptySubmitPointerCancel = () => {
+    releaseEmptySubmitHold();
   };
   onFrameResize = () => {
     tallestFrame = Math.max(tallestFrame, pageHeight());
@@ -60,7 +72,10 @@ export function startHintKeyboardHold(): void {
   onFrameResize();
   window.addEventListener('resize', onFrameResize);
   document.addEventListener('pointerdown', onHintPointerDown, true);
+  document.addEventListener('pointerup', onEmptySubmitPointerUp, true);
+  document.addEventListener('pointercancel', onEmptySubmitPointerCancel, true);
   document.addEventListener('click', onHintClick);
+  document.addEventListener('keydown', onAnswerKeyDown, true);
 }
 
 export function stopHintKeyboardHold(): void {
@@ -72,12 +87,44 @@ export function stopHintKeyboardHold(): void {
     document.removeEventListener('click', onHintClick);
     onHintClick = null;
   }
+  if (onAnswerKeyDown) {
+    document.removeEventListener('keydown', onAnswerKeyDown, true);
+    onAnswerKeyDown = null;
+  }
+  if (onEmptySubmitPointerUp) {
+    document.removeEventListener('pointerup', onEmptySubmitPointerUp, true);
+    onEmptySubmitPointerUp = null;
+  }
+  if (onEmptySubmitPointerCancel) {
+    document.removeEventListener('pointercancel', onEmptySubmitPointerCancel, true);
+    onEmptySubmitPointerCancel = null;
+  }
+  clearEmptySubmitFallback();
+  emptySubmitHolding = false;
+  emptySubmitHold = null;
   releaseFocusHold?.();
+  releaseFocusHold = null;
   if (onFrameResize) {
     window.removeEventListener('resize', onFrameResize);
     onFrameResize = null;
   }
   tallestFrame = 0;
+}
+
+function holdHintKeyboard(target: EventTarget | null): boolean {
+  if (!isMobileHint(target)) {
+    return false;
+  }
+  const input = findAnswerInput();
+  if (!input) {
+    return true;
+  }
+  if (keyboardCoversPage()) {
+    holdAnswerFocused(input);
+    return true;
+  }
+  holdAnswerUnfocused(input);
+  return true;
 }
 
 function isMobileHint(target: EventTarget | null): boolean {
@@ -175,6 +222,93 @@ function holdAnswerUnfocused(input: HTMLInputElement): void {
 
 function releaseSoon(): void {
   setTimeout(() => releaseFocusHold?.(), 0);
+}
+
+/**
+ * Tapping submit moves focus onto the button and the soft keyboard drops.
+ * Bunpro still shows the empty-answer popup. Hold the field through that tap
+ * when the keyboard is already up, then let the hold go so Back can blur.
+ */
+function holdEmptySubmitKeyboard(target: EventTarget | null): void {
+  if (!isEmptyAnswerSubmit(target)) {
+    return;
+  }
+  if (!retainAnswerKeyboard()) {
+    return;
+  }
+  emptySubmitHolding = true;
+  emptySubmitHold = releaseFocusHold;
+  clearEmptySubmitFallback();
+  emptySubmitFallback = setTimeout(() => {
+    emptySubmitFallback = null;
+    releaseEmptySubmitHold();
+  }, EMPTY_SUBMIT_FALLBACK_MS);
+}
+
+function holdEmptySubmitOnEnter(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' || event.repeat) {
+    return;
+  }
+  const input = findAnswerInput();
+  if (!input || document.activeElement !== input || input.value.trim() !== '') {
+    return;
+  }
+  if (!retainAnswerKeyboard()) {
+    return;
+  }
+  releaseSoon();
+}
+
+function releaseEmptySubmitAfterClick(target: EventTarget | null): void {
+  if (!emptySubmitHolding || !isSubmitControl(target)) {
+    return;
+  }
+  const hold = emptySubmitHold;
+  emptySubmitHolding = false;
+  emptySubmitHold = null;
+  clearEmptySubmitFallback();
+  // The empty-answer popup is mounted from this click. Keep the field focused
+  // through that, then drop the hold so the back gesture can blur.
+  setTimeout(() => {
+    if (releaseFocusHold === hold) {
+      releaseAnswerKeyboard();
+    }
+  }, 0);
+}
+
+function releaseEmptySubmitHold(): void {
+  if (!emptySubmitHolding) {
+    return;
+  }
+  const hold = emptySubmitHold;
+  emptySubmitHolding = false;
+  emptySubmitHold = null;
+  clearEmptySubmitFallback();
+  if (hold !== null && releaseFocusHold === hold) {
+    releaseAnswerKeyboard();
+  }
+}
+
+function clearEmptySubmitFallback(): void {
+  if (emptySubmitFallback === null) {
+    return;
+  }
+  clearTimeout(emptySubmitFallback);
+  emptySubmitFallback = null;
+}
+
+function isSubmitControl(target: EventTarget | null): boolean {
+  return document.documentElement.classList.contains(MOBILE_WEB_CLASS)
+    && target instanceof Element
+    && findSubmitButton()?.contains(target) === true;
+}
+
+function isEmptyAnswerSubmit(target: EventTarget | null): boolean {
+  if (!isSubmitControl(target)) {
+    return false;
+  }
+  const input = findAnswerInput();
+  return input !== null && input.value.trim() === '';
 }
 
 /** Keep the answer field focused while the keyboard is already up. */

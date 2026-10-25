@@ -43,6 +43,9 @@ describe('improvedMobileWebFeature', () => {
     expect(styles).toContain('bb-vv-height');
     expect(styles).toContain('justify-content: safe center');
     expect(styles).toContain('touch-action: pan-y');
+    expect(styles).toContain('overscroll-behavior-y: auto');
+    expect(styles).toContain('margin-bottom: 1px');
+    expect(styles).not.toContain('overscroll-behavior: contain');
     expect(styles).toContain(PROMPT_SCROLLING_CLASS);
     expect(styles).toContain(
       'html.bb-mobile-web #js-quiz .bp-quiz-question button::before {\n  bottom: 0.4em !important;\n}',
@@ -53,6 +56,13 @@ describe('improvedMobileWebFeature', () => {
         'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,',
         'html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {',
         '  bottom: 0 !important;',
+        '}',
+      ].join('\n'),
+    );
+    expect(styles).toContain(
+      [
+        'html.bb-mobile-web #js-quiz:has(#quiz-metadata-element[data-meta-is-revealing="true"][data-meta-is-correct="false"][data-meta-input=""]) .bp-quiz-question button > .text-correct {',
+        '  color: rgb(var(--c-incorrect) / 1);',
         '}',
       ].join('\n'),
     );
@@ -139,6 +149,88 @@ describe('improvedMobileWebFeature', () => {
 
     expect(focusedDuringClick).toBe(true);
     expect(document.activeElement).toBe(input);
+  });
+
+  it('keeps the answer focused when an empty answer is submitted', () => {
+    vi.useFakeTimers();
+    const { input, button } = mountEmptySubmit();
+    input.focus();
+    let submitted = false;
+    button.addEventListener('mousedown', () => input.blur());
+    button.addEventListener('click', () => {
+      submitted = true;
+      input.blur();
+    });
+
+    pressSubmit(button);
+
+    expect(submitted).toBe(true);
+    expect(document.activeElement).toBe(input);
+    vi.advanceTimersByTime(0);
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('keeps the answer focused when Enter submits an empty answer', () => {
+    vi.useFakeTimers();
+    const { input } = mountEmptySubmit();
+    input.focus();
+    input.addEventListener('keydown', () => input.blur());
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(document.activeElement).toBe(input);
+    vi.advanceTimersByTime(0);
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('does not focus the answer when an empty submit happens with the keyboard hidden', () => {
+    const { input, button } = mountEmptySubmit();
+
+    pressSubmit(button);
+
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('lets a typed answer leave the field when it is submitted', () => {
+    const { input, button } = mountEmptySubmit();
+    input.value = 'ねる';
+    input.focus();
+    button.addEventListener('mousedown', () => input.blur());
+
+    pressSubmit(button);
+
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('paints a given-up blank incorrect and leaves a correct answer green', () => {
+    improvedMobileWebFeature.start();
+    document.documentElement.style.setProperty('--c-incorrect', '200 76 82');
+    document.documentElement.style.setProperty('--c-correct', '103 188 105');
+    const bunpro = document.createElement('style');
+    bunpro.textContent = '.text-correct { color: rgb(var(--c-correct) / 1); }';
+    document.head.append(bunpro);
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <div id="quiz-metadata-element" data-meta-is-revealing="true" data-meta-is-correct="false" data-meta-input=""></div>
+        <div class="bp-quiz-question"><button><span class="text-correct">答え</span></button></div>
+      </div>
+    `;
+    const blank = document.querySelector('.text-correct') as HTMLElement;
+    const givenUp = getComputedStyle(blank).color;
+
+    const meta = document.getElementById('quiz-metadata-element')!;
+    meta.setAttribute('data-meta-is-correct', 'true');
+    meta.setAttribute('data-meta-input', '答え');
+    const correct = getComputedStyle(blank).color;
+
+    bunpro.remove();
+    document.documentElement.style.removeProperty('--c-incorrect');
+    document.documentElement.style.removeProperty('--c-correct');
+    expect(givenUp).toContain('--c-incorrect');
+    expect(correct).toContain('--c-correct');
+    expect(givenUp).not.toBe(correct);
   });
 
   it('does not open the keyboard when Hint is pressed while it is hidden', () => {
@@ -320,6 +412,26 @@ function pointerAt(type: string, pointerType: string, clientY: number, buttons: 
     buttons,
     clientY,
   });
+}
+
+function mountEmptySubmit(): { input: HTMLInputElement; button: HTMLButtonElement } {
+  document.body.innerHTML = `
+    <input id="js-manual-input" />
+    <button class="InputManual__button"><span>submit</span></button>
+  `;
+  improvedMobileWebFeature.start();
+  return {
+    input: document.getElementById('js-manual-input') as HTMLInputElement,
+    button: document.querySelector('.InputManual__button') as HTMLButtonElement,
+  };
+}
+
+function pressSubmit(button: HTMLElement): void {
+  const control = button.querySelector('span') ?? button;
+  control.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+  control.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  control.dispatchEvent(new Event('pointerup', { bubbles: true }));
+  control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
 function mountHintPress(): { input: HTMLInputElement; span: Element } {

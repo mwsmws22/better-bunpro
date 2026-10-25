@@ -195,13 +195,21 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-html.bb-mobile-web,
+/* The document stays one pixel taller than the viewport. A locked root
+   (overflow: hidden) swallows a pull from the top of the screen, so the
+   browser cannot refresh. The quiz shell itself stays pinned. */
+html.bb-mobile-web {
+  height: auto;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+}
 html.bb-mobile-web body {
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
   overflow: hidden;
-}
-html.bb-mobile-web body {
+  margin-bottom: 1px;
   position: relative;
   top: var(--bb-vv-offset-top, 0px);
 }
@@ -249,9 +257,10 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
+     A pull past the top chains to the document so the browser can refresh. */
   touch-action: pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
@@ -312,6 +321,12 @@ html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)
 html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,
 html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {
   bottom: 0 !important;
+}
+/* Empty cloze give-up fills the blank from the alternate answer, and Bunpro
+   marks that text text-correct even though the attempt is wrong. Paint that
+   blank with the incorrect color. A correct attempt keeps text-correct. */
+html.bb-mobile-web #js-quiz:has(#quiz-metadata-element[data-meta-is-revealing="true"][data-meta-is-correct="false"][data-meta-input=""]) .bp-quiz-question button > .text-correct {
+  color: rgb(var(--c-incorrect) / 1);
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
 html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
