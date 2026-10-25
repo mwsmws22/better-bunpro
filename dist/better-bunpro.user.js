@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.8
+// @version      0.10.9
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -718,13 +718,21 @@ html.bb-hide-srs li[title="Your SRS progress"] {
  * viewport (visualViewport height) so the soft keyboard does not leave a gap.
  * Bunpro nests the quiz <article> under a centering wrapper inside #js-quiz.
  */
-html.bb-mobile-web,
+/* The document stays one pixel taller than the viewport. A locked root
+   (overflow: hidden) swallows a pull from the top of the screen, so the
+   browser cannot refresh. The quiz shell itself stays pinned. */
+html.bb-mobile-web {
+  height: auto;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+}
 html.bb-mobile-web body {
   height: var(--bb-vv-height, 100dvh);
   max-height: var(--bb-vv-height, 100dvh);
   overflow: hidden;
-}
-html.bb-mobile-web body {
+  margin-bottom: 1px;
   position: relative;
   top: var(--bb-vv-offset-top, 0px);
 }
@@ -772,9 +780,10 @@ html.bb-mobile-web #js-quiz article:not(.bp-reviewable-root):not(.bp-modal-conta
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that. */
+  /* A finger pans this scroller. The simulator's drag is a mouse gesture; prompt-scroll handles that.
+     A pull past the top chains to the document so the browser can refresh. */
   touch-action: pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   display: flex !important;
@@ -835,6 +844,12 @@ html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-primary-accent)
 html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-correct)::before,
 html.bb-mobile-web #js-quiz .bp-quiz-question button:has(> .text-incorrect)::before {
   bottom: 0 !important;
+}
+/* Empty cloze give-up fills the blank from the alternate answer, and Bunpro
+   marks that text text-correct even though the attempt is wrong. Paint that
+   blank with the incorrect color. A correct attempt keeps text-correct. */
+html.bb-mobile-web #js-quiz:has(#quiz-metadata-element[data-meta-is-revealing="true"][data-meta-is-correct="false"][data-meta-input=""]) .bp-quiz-question button > .text-correct {
+  color: rgb(var(--c-incorrect) / 1);
 }
 html.bb-mobile-web #js-quiz .bp-quiz-question rt,
 html.bb-mobile-web #js-quiz .bp-quiz-question .hide-furigana {
@@ -3062,26 +3077,38 @@ input.bb-correct-guess {
 	var KEYBOARD_COVER_GAP_PX = 120;
 	var PHONE_SCREEN_MAX_PX = 1e3;
 	var PORTRAIT_MIN_RATIO = 1.65;
+	var EMPTY_SUBMIT_FALLBACK_MS = 700;
 	var onHintPointerDown = null;
 	var onHintClick = null;
+	var onAnswerKeyDown = null;
+	var onEmptySubmitPointerUp = null;
+	var onEmptySubmitPointerCancel = null;
 	var onFrameResize = null;
 	var releaseFocusHold = null;
+	var emptySubmitHolding = false;
+	var emptySubmitHold = null;
+	var emptySubmitFallback = null;
 	var tallestFrame = 0;
 	function startHintKeyboardHold() {
 		if (onHintPointerDown) return;
 		onHintPointerDown = (event) => {
-			if (!isMobileHint(event.target)) return;
-			const input = findAnswerInput();
-			if (!input) return;
-			if (keyboardCoversPage()) {
-				holdAnswerFocused(input);
-				return;
-			}
-			holdAnswerUnfocused(input);
+			if (holdHintKeyboard(event.target)) return;
+			holdEmptySubmitKeyboard(event.target);
 		};
 		onHintClick = (event) => {
-			if (!isMobileHint(event.target)) return;
-			releaseSoon();
+			if (isMobileHint(event.target)) {
+				releaseSoon();
+				return;
+			}
+			releaseEmptySubmitAfterClick(event.target);
+		};
+		onAnswerKeyDown = holdEmptySubmitOnEnter;
+		onEmptySubmitPointerUp = (event) => {
+			if (!emptySubmitHolding || isEmptyAnswerSubmit(event.target)) return;
+			releaseEmptySubmitHold();
+		};
+		onEmptySubmitPointerCancel = () => {
+			releaseEmptySubmitHold();
 		};
 		onFrameResize = () => {
 			tallestFrame = Math.max(tallestFrame, pageHeight());
@@ -3089,7 +3116,10 @@ input.bb-correct-guess {
 		onFrameResize();
 		window.addEventListener("resize", onFrameResize);
 		document.addEventListener("pointerdown", onHintPointerDown, true);
+		document.addEventListener("pointerup", onEmptySubmitPointerUp, true);
+		document.addEventListener("pointercancel", onEmptySubmitPointerCancel, true);
 		document.addEventListener("click", onHintClick);
+		document.addEventListener("keydown", onAnswerKeyDown, true);
 	}
 	function stopHintKeyboardHold() {
 		if (onHintPointerDown) {
@@ -3100,12 +3130,39 @@ input.bb-correct-guess {
 			document.removeEventListener("click", onHintClick);
 			onHintClick = null;
 		}
+		if (onAnswerKeyDown) {
+			document.removeEventListener("keydown", onAnswerKeyDown, true);
+			onAnswerKeyDown = null;
+		}
+		if (onEmptySubmitPointerUp) {
+			document.removeEventListener("pointerup", onEmptySubmitPointerUp, true);
+			onEmptySubmitPointerUp = null;
+		}
+		if (onEmptySubmitPointerCancel) {
+			document.removeEventListener("pointercancel", onEmptySubmitPointerCancel, true);
+			onEmptySubmitPointerCancel = null;
+		}
+		clearEmptySubmitFallback();
+		emptySubmitHolding = false;
+		emptySubmitHold = null;
 		releaseFocusHold?.();
+		releaseFocusHold = null;
 		if (onFrameResize) {
 			window.removeEventListener("resize", onFrameResize);
 			onFrameResize = null;
 		}
 		tallestFrame = 0;
+	}
+	function holdHintKeyboard(target) {
+		if (!isMobileHint(target)) return false;
+		const input = findAnswerInput();
+		if (!input) return true;
+		if (keyboardCoversPage()) {
+			holdAnswerFocused(input);
+			return true;
+		}
+		holdAnswerUnfocused(input);
+		return true;
 	}
 	function isMobileHint(target) {
 		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && target.closest(HINT_BUTTON) !== null;
@@ -3169,6 +3226,55 @@ input.bb-correct-guess {
 	}
 	function releaseSoon() {
 		setTimeout(() => releaseFocusHold?.(), 0);
+	}
+	function holdEmptySubmitKeyboard(target) {
+		if (!isEmptyAnswerSubmit(target)) return;
+		if (!retainAnswerKeyboard()) return;
+		emptySubmitHolding = true;
+		emptySubmitHold = releaseFocusHold;
+		clearEmptySubmitFallback();
+		emptySubmitFallback = setTimeout(() => {
+			emptySubmitFallback = null;
+			releaseEmptySubmitHold();
+		}, EMPTY_SUBMIT_FALLBACK_MS);
+	}
+	function holdEmptySubmitOnEnter(event) {
+		if (event.key !== "Enter" || event.repeat) return;
+		const input = findAnswerInput();
+		if (!input || document.activeElement !== input || input.value.trim() !== "") return;
+		if (!retainAnswerKeyboard()) return;
+		releaseSoon();
+	}
+	function releaseEmptySubmitAfterClick(target) {
+		if (!emptySubmitHolding || !isSubmitControl(target)) return;
+		const hold = emptySubmitHold;
+		emptySubmitHolding = false;
+		emptySubmitHold = null;
+		clearEmptySubmitFallback();
+		setTimeout(() => {
+			if (releaseFocusHold === hold) releaseAnswerKeyboard();
+		}, 0);
+	}
+	function releaseEmptySubmitHold() {
+		if (!emptySubmitHolding) return;
+		const hold = emptySubmitHold;
+		emptySubmitHolding = false;
+		emptySubmitHold = null;
+		clearEmptySubmitFallback();
+		if (hold !== null && releaseFocusHold === hold) releaseAnswerKeyboard();
+	}
+	function clearEmptySubmitFallback() {
+		if (emptySubmitFallback === null) return;
+		clearTimeout(emptySubmitFallback);
+		emptySubmitFallback = null;
+	}
+	function isSubmitControl(target) {
+		return document.documentElement.classList.contains("bb-mobile-web") && target instanceof Element && findSubmitButton()?.contains(target) === true;
+	}
+	function isEmptyAnswerSubmit(target) {
+		if (!isSubmitControl(target)) return false;
+		const input = findAnswerInput();
+		return input !== null && input.value.trim() === "";
 	}
 	function retainAnswerKeyboard() {
 		if (!document.documentElement.classList.contains("bb-mobile-web")) return false;
@@ -3494,7 +3600,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.8";
+	var version = "0.10.9";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
