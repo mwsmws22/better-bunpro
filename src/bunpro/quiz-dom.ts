@@ -135,10 +135,14 @@ export function findUndoButton(): HTMLElement | null {
  * The session score also uses CHECK, but that mark sits in a list item, not a
  * button — so only a CHECK nested under a button is the reveal action. Bunpro
  * keeps the control mounted with Tailwind `hidden` until a miss, so ignore it
- * while any ancestor still has that class.
+ * while any ancestor still has that class. After a correct answer the submit
+ * control briefly shows CHECK too; that must not count as See Answer or Enter
+ * is stolen for ~1.5s until the arrow appears.
  */
 export function findSeeAnswerButton(): HTMLElement | null {
-  const button = document.querySelector<HTMLElement>('button:has(svg[data-name="CHECK"])');
+  const button = document.querySelector<HTMLElement>(
+    'button:has(svg[data-name="CHECK"]):not(.InputManual__button)',
+  );
   if (!button || button.closest('.hidden')) {
     return null;
   }

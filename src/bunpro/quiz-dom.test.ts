@@ -186,6 +186,26 @@ describe('findSeeAnswerButton', () => {
 
     expect(findSeeAnswerButton()).toBeNull();
   });
+
+  it('ignores the next-question button while it briefly shows CHECK after a correct answer', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <button type="button" class="InputManual__button" title="Next question">
+          <svg data-name="CHECK"></svg>
+        </button>
+        <ul class="grid gap-8 hidden">
+          <li class="grow hidden">
+            <button id="see" type="button">
+              <svg data-name="CHECK"></svg>
+              <span>See Answer</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    `;
+
+    expect(findSeeAnswerButton()).toBeNull();
+  });
 });
 
 describe('undoGradedAnswer', () => {

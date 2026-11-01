@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.11.1
+// @version      0.11.2
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -189,7 +189,7 @@
 		return document.querySelector("svg[data-name=\"UNDO\"]")?.closest("button") ?? null;
 	}
 	function findSeeAnswerButton() {
-		const button = document.querySelector("button:has(svg[data-name=\"CHECK\"])");
+		const button = document.querySelector("button:has(svg[data-name=\"CHECK\"]):not(.InputManual__button)");
 		if (!button || button.closest(".hidden")) return null;
 		return button;
 	}
@@ -3673,7 +3673,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.11.1";
+	var version = "0.11.2";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
