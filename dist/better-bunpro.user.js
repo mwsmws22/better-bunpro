@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.10.14
+// @version      0.11.0
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -187,6 +187,11 @@
 	}
 	function findUndoButton() {
 		return document.querySelector("svg[data-name=\"UNDO\"]")?.closest("button") ?? null;
+	}
+	function findSeeAnswerButton() {
+		const button = document.querySelector("button:has(svg[data-name=\"CHECK\"])");
+		if (!button || button.closest(".hidden")) return null;
+		return button;
 	}
 	var UNDO_WARNING_ID = "quiz-undo";
 	var SKIP_UNDO_MODAL_CLASS = "bb-skipping-undo-modal";
@@ -1107,11 +1112,11 @@ input.bb-correct-guess {
 			onEscape
 		};
 		claims.push(claim);
-		if (claims.length === 1) window.addEventListener("keydown", onKeyDown$4, true);
+		if (claims.length === 1) window.addEventListener("keydown", onKeyDown$5, true);
 		return () => {
 			const index = claims.indexOf(claim);
 			if (index !== -1) claims.splice(index, 1);
-			if (claims.length === 0) window.removeEventListener("keydown", onKeyDown$4, true);
+			if (claims.length === 0) window.removeEventListener("keydown", onKeyDown$5, true);
 		};
 	}
 	function areKeystrokesClaimed() {
@@ -1120,7 +1125,7 @@ input.bb-correct-guess {
 	function hasModifier(event) {
 		return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 	}
-	function onKeyDown$4(event) {
+	function onKeyDown$5(event) {
 		const newest = claims[claims.length - 1];
 		if (!newest) return;
 		if (event.key === "Escape") {
@@ -1234,7 +1239,7 @@ input.bb-correct-guess {
 		});
 		return row[target.length - 1] ?? left.length;
 	}
-	var SUBMIT_KEY = "Enter";
+	var SUBMIT_KEY$1 = "Enter";
 	var lastRejected = null;
 	var officialSubmitTimer = null;
 	var keepGuessingFeature = {
@@ -1244,12 +1249,12 @@ input.bb-correct-guess {
 		enabledByDefault: true,
 		start() {
 			injectStyles();
-			window.addEventListener("keydown", onKeyDown$3, true);
-			window.addEventListener("click", onClick, true);
+			window.addEventListener("keydown", onKeyDown$4, true);
+			window.addEventListener("click", onClick$1, true);
 		},
 		stop() {
-			window.removeEventListener("keydown", onKeyDown$3, true);
-			window.removeEventListener("click", onClick, true);
+			window.removeEventListener("keydown", onKeyDown$4, true);
+			window.removeEventListener("click", onClick$1, true);
 			lastRejected = null;
 			if (officialSubmitTimer !== null) {
 				window.clearTimeout(officialSubmitTimer);
@@ -1257,11 +1262,11 @@ input.bb-correct-guess {
 			}
 		}
 	};
-	function onKeyDown$3(event) {
-		if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
+	function onKeyDown$4(event) {
+		if (event.key !== SUBMIT_KEY$1 || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
 		swallowIfWrong(event);
 	}
-	function onClick(event) {
+	function onClick$1(event) {
 		const target = event.target;
 		if (!(target instanceof Node) || findSubmitButton()?.contains(target) !== true) return;
 		swallowIfWrong(event);
@@ -1362,10 +1367,10 @@ input.bb-correct-guess {
 			injectStyles();
 			stopWatchingQuiz$4 = watchQuizState(syncButton);
 			stopWatchingRemounts$1 = watchBodyRemounts(() => syncButton(readQuizState()));
-			window.addEventListener("keydown", onKeyDown$2, true);
+			window.addEventListener("keydown", onKeyDown$3, true);
 		},
 		stop() {
-			window.removeEventListener("keydown", onKeyDown$2, true);
+			window.removeEventListener("keydown", onKeyDown$3, true);
 			stopWatchingQuiz$4?.();
 			stopWatchingQuiz$4 = null;
 			stopWatchingRemounts$1?.();
@@ -1392,7 +1397,7 @@ input.bb-correct-guess {
 		if (!quizConsole) return;
 		quizConsole.before(buildSlot(state));
 	}
-	function onKeyDown$2(event) {
+	function onKeyDown$3(event) {
 		if (event.key !== SYNONYM_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
 		const button = document.querySelector(`#${SLOT_ID} button`);
 		if (!button) return;
@@ -1487,16 +1492,16 @@ input.bb-correct-guess {
 		start() {
 			injectStyles();
 			stopWatchingQuiz$3 = watchQuizState(onQuizStateChange$3);
-			window.addEventListener("keydown", onKeyDown$1, true);
+			window.addEventListener("keydown", onKeyDown$2, true);
 		},
 		stop() {
-			window.removeEventListener("keydown", onKeyDown$1, true);
+			window.removeEventListener("keydown", onKeyDown$2, true);
 			stopWatchingQuiz$3?.();
 			stopWatchingQuiz$3 = null;
 			forgetPending();
 		}
 	};
-	function onKeyDown$1(event) {
+	function onKeyDown$2(event) {
 		if (event.key !== EDIT_KEY || hasModifier(event)) return;
 		if (pending$1) {
 			event.preventDefault();
@@ -3517,6 +3522,37 @@ input.bb-correct-guess {
 			stopVisualViewportSync();
 		}
 	};
+	var SUBMIT_KEY = "Enter";
+	var seeAnswerOnSubmitFeature = {
+		id: "see-answer-on-submit",
+		title: "Show the answer before moving on after a miss",
+		description: "After a wrong cloze answer, Bunpro leaves you on red with See Answer. `Enter` or the submit arrow would skip to the next review. With this on, they reveal the answer first — the same idea as blank → warn → `Enter`.",
+		enabledByDefault: true,
+		start() {
+			window.addEventListener("keydown", onKeyDown$1, true);
+			window.addEventListener("click", onClick, true);
+		},
+		stop() {
+			window.removeEventListener("keydown", onKeyDown$1, true);
+			window.removeEventListener("click", onClick, true);
+		}
+	};
+	function onKeyDown$1(event) {
+		if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
+		revealInsteadOfAdvance(event);
+	}
+	function onClick(event) {
+		const target = event.target;
+		if (!(target instanceof Node) || findSubmitButton()?.contains(target) !== true) return;
+		revealInsteadOfAdvance(event);
+	}
+	function revealInsteadOfAdvance(event) {
+		const seeAnswer = findSeeAnswerButton();
+		if (!seeAnswer) return;
+		event.preventDefault();
+		event.stopPropagation();
+		seeAnswer.click();
+	}
 	function bunproSentenceIndex(sentences) {
 		const shownId = nativeSentenceId();
 		if (shownId !== null) {
@@ -3629,7 +3665,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.10.14";
+	var version = "0.11.0";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -3825,6 +3861,7 @@ input.bb-correct-guess {
 	registerFeature(exampleSentenceFeature);
 	registerFeature(sentenceCycleFeature);
 	registerFeature(keepGuessingFeature);
+	registerFeature(seeAnswerOnSubmitFeature);
 	registerFeature(humanTermAudioFeature);
 	registerFeature(addSynonymFeature);
 	registerFeature(editOnLeftFeature);

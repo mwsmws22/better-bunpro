@@ -6,6 +6,7 @@ import {
   findDetailsPitchPlay,
   findExamplesListPlayControls,
   findHotkeyGuideArticle,
+  findSeeAnswerButton,
   findTermAudioControl,
   findTermAudioControls,
   findUndoConfirmButton,
@@ -130,6 +131,60 @@ describe('findUndoConfirmButton', () => {
     `;
 
     expect(findUndoConfirmButton()).toBeNull();
+  });
+});
+
+describe('findSeeAnswerButton', () => {
+  it('finds the visible See Answer action by its CHECK icon', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <li title="Correct question attempts over total attempts">
+          <svg data-name="CHECK"></svg>
+          <p>0/1</p>
+        </li>
+        <ul class="grid gap-8">
+          <li class="grow">
+            <button id="see" type="button" class="w-full select-none">
+              <svg data-name="CHECK"></svg>
+              <span>See Answer</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    `;
+
+    expect(findSeeAnswerButton()?.id).toBe('see');
+  });
+
+  it('ignores See Answer while Bunpro keeps its row hidden', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <ul class="grid gap-8 hidden">
+          <li class="grow hidden">
+            <button id="see" type="button" class="w-full select-none">
+              <svg data-name="CHECK"></svg>
+              <span>See Answer</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    `;
+
+    expect(findSeeAnswerButton()).toBeNull();
+  });
+
+  it('returns null when only the score-counter CHECK remains', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <li title="Correct question attempts over total attempts">
+          <svg data-name="CHECK"></svg>
+          <p>0/1</p>
+        </li>
+        <button type="button"><svg data-name="WRAP_TEXT"></svg><span>Alternatives</span></button>
+      </div>
+    `;
+
+    expect(findSeeAnswerButton()).toBeNull();
   });
 });
 

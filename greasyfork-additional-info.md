@@ -20,6 +20,10 @@ After a missed vocab translation, an **Add as synonym** button next to your gues
 
 On Manual Translation reviews, Bunpro shows the correct answer as soon as you miss — so undo is pointless. With this on, a wrong guess is not submitted: nothing is revealed and you can try again. This is similar to how Cloze reviews already work. To give up, press `Enter`.
 
+### Show the answer before moving on after a miss
+
+After a wrong cloze answer, Bunpro leaves the field red with **See Answer**, but `Enter` or the submit arrow skips to the next review. With this on, they reveal the answer first — the same idea as blank → warn → `Enter`.
+
 ### Edit a wrong answer with Left Arrow
 
 After a wrong typed answer, `Left Arrow` undoes without deleting — the full guess stays so you can fix a mistake in the middle. (`Backspace` still deletes the last character.)

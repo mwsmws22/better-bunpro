@@ -130,6 +130,21 @@ export function findUndoButton(): HTMLElement | null {
   return document.querySelector('svg[data-name="UNDO"]')?.closest('button') ?? null;
 }
 
+/**
+ * Cloze misses leave a See Answer control (CHECK icon) instead of revealing.
+ * The session score also uses CHECK, but that mark sits in a list item, not a
+ * button — so only a CHECK nested under a button is the reveal action. Bunpro
+ * keeps the control mounted with Tailwind `hidden` until a miss, so ignore it
+ * while any ancestor still has that class.
+ */
+export function findSeeAnswerButton(): HTMLElement | null {
+  const button = document.querySelector<HTMLElement>('button:has(svg[data-name="CHECK"])');
+  if (!button || button.closest('.hidden')) {
+    return null;
+  }
+  return button;
+}
+
 const UNDO_WARNING_ID = 'quiz-undo';
 const SKIP_UNDO_MODAL_CLASS = 'bb-skipping-undo-modal';
 const UNDO_PROMPT_WAIT_MS = 400;

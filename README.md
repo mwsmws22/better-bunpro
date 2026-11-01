@@ -9,6 +9,7 @@ Built with [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey). 
 - Example sentences for A5 vocab after a correct answer (when Bunpro shows none)
 - Tab to cycle example sentences
 - Don't spoil the answer on a wrong typed guess
+- After a wrong cloze answer, Enter / submit show the answer instead of skipping ahead
 - Add a missed vocab translation as a synonym (button or **S**)
 - Left Arrow to re-edit a wrong answer without deleting the last character
 - Real speaker audio instead of synthesised term TTS (answer-bar play ↔ pause, including autoplay)
