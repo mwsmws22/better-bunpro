@@ -63,8 +63,9 @@ function buildToolbarButton(): HTMLElement {
     'button',
     { class: 'block', title: 'Better Bunpro settings', 'aria-haspopup': 'dialog' },
     [
-      // Bunpro’s quiz toolbar icons use 1.625rem; 2.25rem made ours visibly larger.
-      element('div', { class: 'bp-hover-bg__child rounded-normal', style: 'font-size: 1.625rem;' }, [
+      // Match Bunpro’s quiz toolbar (Exit / Settings / Palette): 2.25rem → 24px SVG.
+      // Mobile web shrinks this under html.bb-mobile-web — see styles.ts.
+      element('div', { class: 'bp-hover-bg__child rounded-normal bb-settings-launcher-size' }, [
         element(
           'div',
           {

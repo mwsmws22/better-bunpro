@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.11.0
+// @version      0.11.1
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -546,6 +546,14 @@
 }
 .bb-backdrop {
   background: rgb(0 0 0 / 0.5);
+}
+/* Quiz toolbar / site-header Better Bunpro button — same em box Bunpro uses. */
+.bb-settings-launcher-size {
+  font-size: 2.25rem;
+}
+/* Phone toolbar icons sit at 1.625rem; keep ours matched when mobile web is on. */
+html.bb-mobile-web .bb-settings-launcher-size {
+  font-size: 1.625rem;
 }
 .bb-panel-card {
   width: min(100%, 34rem);
@@ -3503,9 +3511,9 @@ input.bb-correct-guess {
 	}
 	var improvedMobileWebFeature = {
 		id: "improved-mobile-web",
-		title: "Improved web mobile experience",
-		description: "On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, no leftover gap when the keyboard closes. Desktop layouts are unchanged. More mobile polish may land under this setting later.",
-		enabledByDefault: true,
+		title: "Improved web mobile experience (beta)",
+		description: "Beta — still rough; leave off unless you want to try it. On phones (and narrow / responsive-design viewports), keeps the review UI filling the visible screen — answer bar at the bottom, no leftover gap when the keyboard closes. Desktop layouts are unchanged.",
+		enabledByDefault: false,
 		start() {
 			injectStyles();
 			startHintKeyboardHold();
@@ -3665,7 +3673,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.11.0";
+	var version = "0.11.1";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;
@@ -3814,10 +3822,7 @@ input.bb-correct-guess {
 			class: "block",
 			title: "Better Bunpro settings",
 			"aria-haspopup": "dialog"
-		}, [element("div", {
-			class: "bp-hover-bg__child rounded-normal",
-			style: "font-size: 1.625rem;"
-		}, [element("div", {
+		}, [element("div", { class: "bp-hover-bg__child rounded-normal bb-settings-launcher-size" }, [element("div", {
 			class: "relative flex items-center justify-center",
 			style: "width: 1em; height: 1em;"
 		}, [icon])])]);

@@ -19,6 +19,14 @@ const CSS = `
 .bb-backdrop {
   background: rgb(0 0 0 / 0.5);
 }
+/* Quiz toolbar / site-header Better Bunpro button — same em box Bunpro uses. */
+.bb-settings-launcher-size {
+  font-size: 2.25rem;
+}
+/* Phone toolbar icons sit at 1.625rem; keep ours matched when mobile web is on. */
+html.bb-mobile-web .bb-settings-launcher-size {
+  font-size: 1.625rem;
+}
 .bb-panel-card {
   width: min(100%, 34rem);
   max-height: min(80dvh, 40rem);

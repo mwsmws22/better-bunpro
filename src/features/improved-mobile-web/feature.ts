@@ -12,13 +12,13 @@ import { startVisualViewportSync, stopVisualViewportSync } from './visual-viewpo
  */
 export const improvedMobileWebFeature: Feature = {
   id: 'improved-mobile-web',
-  title: 'Improved web mobile experience',
+  title: 'Improved web mobile experience (beta)',
   description:
-    'On phones (and narrow / responsive-design viewports), keeps the review UI ' +
-    'filling the visible screen — answer bar at the bottom, no leftover gap when ' +
-    'the keyboard closes. Desktop layouts are unchanged. More mobile polish may ' +
-    'land under this setting later.',
-  enabledByDefault: true,
+    'Beta — still rough; leave off unless you want to try it. On phones (and ' +
+    'narrow / responsive-design viewports), keeps the review UI filling the ' +
+    'visible screen — answer bar at the bottom, no leftover gap when the ' +
+    'keyboard closes. Desktop layouts are unchanged.',
+  enabledByDefault: false,
 
   start() {
     injectStyles();
