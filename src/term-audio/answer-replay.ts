@@ -2,7 +2,7 @@ import { findAnswerConsole } from '../bunpro/quiz-dom';
 import { readQuizState } from '../bunpro/quiz-state';
 import { element, svgIcon } from '../dom';
 import { injectStyles } from '../styles';
-import { areKeystrokesClaimed, hasModifier } from '../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../ui/keystrokes';
 import { answerBarPrefetchHref } from './example-audio';
 import { prefetchAudioHref } from './prefetch-audio';
 import { canonicalAudioUrl, replacementFor } from './store';
@@ -362,7 +362,7 @@ function stopPHotkey(): void {
 }
 
 function onReplayKeyDown(event: KeyboardEvent): void {
-  if (areKeystrokesClaimed() || hasModifier(event)) {
+  if (areKeystrokesClaimed() || hasModifier(event) || isTypingElsewhere(event.target)) {
     return;
   }
   if (event.key !== 'p' && event.key !== 'P') {

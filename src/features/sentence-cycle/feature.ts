@@ -15,7 +15,7 @@ import {
   shownSentence,
 } from '../../quiz-sentence/slot';
 import { injectStyles } from '../../styles';
-import { areKeystrokesClaimed, hasModifier } from '../../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../../ui/keystrokes';
 import type { Feature } from '../registry';
 import { nextSentenceIndex } from './cycle';
 
@@ -68,7 +68,12 @@ function onQuizStateChange(state: QuizState): void {
  * everywhere else, including in our own settings panel.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== CYCLE_KEY || hasModifier(event) || areKeystrokesClaimed()) {
+  if (
+    event.key !== CYCLE_KEY ||
+    hasModifier(event) ||
+    areKeystrokesClaimed() ||
+    isTypingElsewhere(event.target)
+  ) {
     return;
   }
   const state = readQuizState();

@@ -1,5 +1,5 @@
 import { findSeeAnswerButton, findSubmitButton } from '../../bunpro/quiz-dom';
-import { areKeystrokesClaimed, hasModifier } from '../../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../../ui/keystrokes';
 import type { Feature } from '../registry';
 
 const SUBMIT_KEY = 'Enter';
@@ -30,7 +30,13 @@ export const seeAnswerOnSubmitFeature: Feature = {
 };
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) {
+  if (
+    event.key !== SUBMIT_KEY ||
+    event.repeat ||
+    hasModifier(event) ||
+    areKeystrokesClaimed() ||
+    isTypingElsewhere(event.target)
+  ) {
     return;
   }
   revealInsteadOfAdvance(event);

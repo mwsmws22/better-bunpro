@@ -2,7 +2,7 @@ import { findAnswerInput, findUndoButton, undoGradedAnswer } from '../../bunpro/
 import { readQuizState, watchQuizState, type QuizState } from '../../bunpro/quiz-state';
 import { reviewKey } from '../../bunpro/review';
 import { injectStyles } from '../../styles';
-import { areKeystrokesClaimed, hasModifier } from '../../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../../ui/keystrokes';
 import type { Feature } from '../registry';
 import { pendingRestoreAction, restoreWrongAnswer, shouldEnterEditOnLeft } from './edit';
 
@@ -35,7 +35,7 @@ export const editOnLeftFeature: Feature = {
 };
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== EDIT_KEY || hasModifier(event)) {
+  if (event.key !== EDIT_KEY || hasModifier(event) || isTypingElsewhere(event.target)) {
     return;
   }
   if (pending) {

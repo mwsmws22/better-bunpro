@@ -128,6 +128,22 @@ describe('syncAnswerBarReplay', () => {
     expect(button?.classList.contains('bb-replay-playing')).toBe(false);
   });
 
+  it('does not steal P while typing in Bunpro’s report-bug textarea', () => {
+    emptyAnswerBar();
+    mockAudioPlay();
+    const report = document.createElement('textarea');
+    document.body.append(report);
+
+    syncAnswerBarReplay({ enabled: true, playUrl: 'blob:jpod' });
+    const button = document.getElementById('bb-answer-bar-replay');
+    report.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'p', bubbles: true, cancelable: true }),
+    );
+
+    expect(button?.classList.contains('bb-replay-playing')).toBe(false);
+    expect(Audio).not.toHaveBeenCalled();
+  });
+
   it('does not clear→reinject when synced again (avoids remount loops)', () => {
     document.body.innerHTML = `
       <div class="InputManual">

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.11.2
+// @version      0.11.3
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -1133,6 +1133,15 @@ input.bb-correct-guess {
 	function hasModifier(event) {
 		return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 	}
+	function isTypingElsewhere(target) {
+		if (!(target instanceof HTMLElement) || target.id === "js-manual-input") return false;
+		if (target.isContentEditable) return true;
+		const tag = target.tagName;
+		if (tag === "TEXTAREA" || tag === "SELECT") return true;
+		if (tag !== "INPUT") return false;
+		const type = target.type;
+		return type !== "button" && type !== "checkbox" && type !== "radio" && type !== "submit" && type !== "reset" && type !== "file" && type !== "image";
+	}
 	function onKeyDown$5(event) {
 		const newest = claims[claims.length - 1];
 		if (!newest) return;
@@ -1271,7 +1280,7 @@ input.bb-correct-guess {
 		}
 	};
 	function onKeyDown$4(event) {
-		if (event.key !== SUBMIT_KEY$1 || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
+		if (event.key !== SUBMIT_KEY$1 || event.repeat || hasModifier(event) || areKeystrokesClaimed() || isTypingElsewhere(event.target)) return;
 		swallowIfWrong(event);
 	}
 	function onClick$1(event) {
@@ -1406,7 +1415,7 @@ input.bb-correct-guess {
 		quizConsole.before(buildSlot(state));
 	}
 	function onKeyDown$3(event) {
-		if (event.key !== SYNONYM_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
+		if (event.key !== SYNONYM_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed() || isTypingElsewhere(event.target)) return;
 		const button = document.querySelector(`#${SLOT_ID} button`);
 		if (!button) return;
 		event.preventDefault();
@@ -1510,7 +1519,7 @@ input.bb-correct-guess {
 		}
 	};
 	function onKeyDown$2(event) {
-		if (event.key !== EDIT_KEY || hasModifier(event)) return;
+		if (event.key !== EDIT_KEY || hasModifier(event) || isTypingElsewhere(event.target)) return;
 		if (pending$1) {
 			event.preventDefault();
 			event.stopPropagation();
@@ -2353,7 +2362,7 @@ input.bb-correct-guess {
 		listeningForP = false;
 	}
 	function onReplayKeyDown(event) {
-		if (areKeystrokesClaimed() || hasModifier(event)) return;
+		if (areKeystrokesClaimed() || hasModifier(event) || isTypingElsewhere(event.target)) return;
 		if (event.key !== "p" && event.key !== "P") return;
 		if (!playUrl || !findAnswerBarReplayControl()) return;
 		event.preventDefault();
@@ -3546,7 +3555,7 @@ input.bb-correct-guess {
 		}
 	};
 	function onKeyDown$1(event) {
-		if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) return;
+		if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed() || isTypingElsewhere(event.target)) return;
 		revealInsteadOfAdvance(event);
 	}
 	function onClick(event) {
@@ -3633,7 +3642,7 @@ input.bb-correct-guess {
 		if (state.reviewable && state.sessionId) loadSentences(state.reviewable);
 	}
 	function onKeyDown(event) {
-		if (event.key !== CYCLE_KEY || hasModifier(event) || areKeystrokesClaimed()) return;
+		if (event.key !== CYCLE_KEY || hasModifier(event) || areKeystrokesClaimed() || isTypingElsewhere(event.target)) return;
 		const state = readQuizState();
 		const reviewKey = solvedReviewKey(state);
 		if (!reviewKey || !state.reviewable || !hasSentenceToCycle(reviewKey)) return;
@@ -3673,7 +3682,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.11.2";
+	var version = "0.11.3";
 	function descriptionNodes(text) {
 		const nodes = [];
 		const pattern = /`([^`]+)`/g;

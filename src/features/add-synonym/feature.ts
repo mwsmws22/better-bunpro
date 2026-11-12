@@ -6,7 +6,7 @@ import { element } from '../../dom';
 import { watchBodyRemounts } from '../../dom/remount';
 import { injectStyles } from '../../styles';
 import { buildActionButton } from '../../ui/action-button';
-import { areKeystrokesClaimed, hasModifier } from '../../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../../ui/keystrokes';
 import { rememberAcceptedGuess } from '../keep-guessing/accepted-guess';
 import { markGuessCorrect } from '../keep-guessing/feedback';
 import { submitAcceptedStandIn } from '../keep-guessing/feature';
@@ -84,7 +84,13 @@ function syncButton(state: QuizState): void {
  * so typing an s into a translation still belongs to the quiz.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== SYNONYM_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) {
+  if (
+    event.key !== SYNONYM_KEY ||
+    event.repeat ||
+    hasModifier(event) ||
+    areKeystrokesClaimed() ||
+    isTypingElsewhere(event.target)
+  ) {
     return;
   }
   const button = document.querySelector<HTMLButtonElement>(`#${SLOT_ID} button`);

@@ -2,7 +2,7 @@ import { fillAnswerInput, findAnswerInput, findSubmitButton } from '../../bunpro
 import { readQuizState, type QuizState } from '../../bunpro/quiz-state';
 import { reviewKey } from '../../bunpro/review';
 import { injectStyles } from '../../styles';
-import { areKeystrokesClaimed, hasModifier } from '../../ui/keystrokes';
+import { areKeystrokesClaimed, hasModifier, isTypingElsewhere } from '../../ui/keystrokes';
 import type { Feature } from '../registry';
 import { takeAcceptedOfficial, takeAcceptedOfficialForReview } from './accepted-guess';
 import { markGuessWrong } from './feedback';
@@ -46,7 +46,13 @@ export const keepGuessingFeature: Feature = {
  * for on `document`, and both are downstream of the capture phase here.
  */
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.key !== SUBMIT_KEY || event.repeat || hasModifier(event) || areKeystrokesClaimed()) {
+  if (
+    event.key !== SUBMIT_KEY ||
+    event.repeat ||
+    hasModifier(event) ||
+    areKeystrokesClaimed() ||
+    isTypingElsewhere(event.target)
+  ) {
     return;
   }
   swallowIfWrong(event);

@@ -36,6 +36,38 @@ export function hasModifier(event: KeyboardEvent): boolean {
 }
 
 /**
+ * True when a keystroke was aimed at a field where characters belong, other than
+ * Bunpro’s answer box (`#js-manual-input`). Quiz hotkeys must yield there —
+ * report-bug textarea, settings fields, synonym editors — but still fire while
+ * focus sits on the quiz answer input.
+ */
+export function isTypingElsewhere(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement) || target.id === 'js-manual-input') {
+    return false;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  const tag = target.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') {
+    return true;
+  }
+  if (tag !== 'INPUT') {
+    return false;
+  }
+  const type = (target as HTMLInputElement).type;
+  return (
+    type !== 'button' &&
+    type !== 'checkbox' &&
+    type !== 'radio' &&
+    type !== 'submit' &&
+    type !== 'reset' &&
+    type !== 'file' &&
+    type !== 'image'
+  );
+}
+
+/**
  * Escape closes the newest thing we have open, wherever focus is. Every other
  * key is only ours when it was aimed at our own UI: typing anywhere else still
  * belongs to the quiz.
