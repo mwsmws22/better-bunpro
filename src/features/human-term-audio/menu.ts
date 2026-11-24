@@ -1,33 +1,30 @@
 import { element } from '../../dom';
 import { listFeatures, setFeatureEnabled } from '../registry';
 import { descriptionNodes } from '../../settings/description';
+import { buildSummary } from '../../settings/summary';
 import { buildSwitch } from '../../settings/switch';
 import {
   audioMenuActive,
   readAudioMenu,
+  speakerSurface,
+  surfaceChecked,
   writeAudioFlag,
   writeSpeakerSurface,
   type SpeakerSurface,
 } from '../../term-audio/options';
-
-const SURFACES: readonly { id: SpeakerSurface; label: string }[] = [
-  { id: 'reviews', label: 'Reviews' },
-  { id: 'vocab', label: 'Vocab page' },
-  { id: 'both', label: 'Reviews and vocab page' },
-];
 
 const AUDIO_FEATURE_ID = 'human-term-audio';
 
 /** Nested Audio rows. Each switch is its own setting; the feature runs if any is on. */
 export function buildAudioMenu(): HTMLElement {
   const menu = readAudioMenu();
-  const radios = buildSurfaceRadios(menu.surface, menu.realSpeakers);
+  const places = buildSurfaceChecks(menu.surface, menu.realSpeakers);
 
   return element('ul', { class: 'bb-audio-menu' }, [
     element('li', {}, [
       optionRow(
-        'Annotate audio',
-        'Show the source when you hover a play button.',
+        'Annotate source',
+        'Show the audio source when you hover a play button.',
         menu.annotate,
         (enabled) => {
           writeAudioFlag('annotate', enabled);
@@ -37,8 +34,8 @@ export function buildAudioMenu(): HTMLElement {
     ]),
     element('li', {}, [
       optionRow(
-        'Color real vs TTS',
-        'Blue when a real recording will play. White when it is text-to-speech.',
+        'Color code human vs TTS',
+        "Play button will be colored when it's a real human recording, else white when TTS.",
         menu.color,
         (enabled) => {
           writeAudioFlag('color', enabled);
@@ -49,15 +46,15 @@ export function buildAudioMenu(): HTMLElement {
     element('li', {}, [
       optionRow(
         'Use real speakers instead of TTS',
-        'Only when the clip is the term itself: a sentence with no audio (A5 and similar), or a translation question with no sentence. Sentence clips stay on Bunpro’s file.',
+        'A real speaker reads the term when the question has no clip of its own: a sentence with no audio (A5 and similar), or a translation question with no sentence.',
         menu.realSpeakers,
         (enabled) => {
           writeAudioFlag('realSpeakers', enabled);
-          setRadiosEnabled(radios, enabled);
+          setPlacesEnabled(places, enabled);
           publish();
         },
+        places,
       ),
-      radios,
     ]),
     element('li', {}, [
       optionRow(
@@ -78,43 +75,50 @@ function optionRow(
   description: string,
   checked: boolean,
   onToggle: (enabled: boolean) => void,
+  extra?: HTMLElement,
 ): HTMLElement {
-  const copy = element('div', { class: 'bb-audio-option-copy' }, [
-    element('div', { class: 'font-bold' }, [title]),
+  const about = element('details', { class: 'bb-feature-about grow' }, [
+    buildSummary(title),
     element(
       'p',
       { class: 'bb-feature-desc text-small text-tertiary-fg' },
       descriptionNodes(description),
     ),
   ]);
-  return element('div', { class: 'bb-audio-option' }, [
-    copy,
-    buildSwitch(title, checked, onToggle),
-  ]);
+  const copy = extra
+    ? element('div', { class: 'bb-audio-option-copy grow' }, [about, extra])
+    : about;
+  return element('div', { class: 'bb-audio-option' }, [copy, buildSwitch(title, checked, onToggle)]);
 }
 
-function buildSurfaceRadios(selected: SpeakerSurface, enabled: boolean): HTMLFieldSetElement {
-  const field = element('fieldset', { class: 'bb-audio-radios' }, [
-    element('legend', { class: 'bb-feature-desc text-small text-tertiary-fg' }, ['Use on']),
+function buildSurfaceChecks(selected: SpeakerSurface, enabled: boolean): HTMLElement {
+  const reviews = checkbox('Reviews', surfaceChecked(selected, 'reviews'));
+  const vocab = checkbox('Vocab page', surfaceChecked(selected, 'vocab'));
+  const row = element('div', { class: 'bb-audio-surfaces', role: 'group', 'aria-label': 'Use real speakers on' }, [
+    reviews.label,
+    vocab.label,
   ]);
-  for (const option of SURFACES) {
-    const input = element('input', { type: 'radio', name: 'bb-audio-surface', value: option.id });
-    input.checked = option.id === selected;
-    input.disabled = !enabled;
-    input.addEventListener('change', () => {
-      if (!input.checked) {
-        return;
-      }
-      writeSpeakerSurface(option.id);
-      publish();
-    });
-    field.append(element('label', { class: 'text-small text-secondary-fg' }, [input, option.label]));
-  }
-  return field;
+
+  const publishPlaces = () => {
+    writeSpeakerSurface(speakerSurface(reviews.input.checked, vocab.input.checked));
+    publish();
+  };
+  reviews.input.addEventListener('change', publishPlaces);
+  vocab.input.addEventListener('change', publishPlaces);
+  setPlacesEnabled(row, enabled);
+  return row;
 }
 
-function setRadiosEnabled(field: HTMLFieldSetElement, enabled: boolean): void {
-  for (const input of field.querySelectorAll('input')) {
+function checkbox(label: string, checked: boolean): { label: HTMLLabelElement; input: HTMLInputElement } {
+  const input = element('input', { type: 'checkbox' });
+  input.checked = checked;
+  const row = element('label', { class: 'text-small text-secondary-fg' }, [input, label]);
+  return { label: row, input };
+}
+
+function setPlacesEnabled(row: HTMLElement, enabled: boolean): void {
+  row.setAttribute('aria-disabled', String(!enabled));
+  for (const input of row.querySelectorAll('input')) {
     input.disabled = !enabled;
   }
 }

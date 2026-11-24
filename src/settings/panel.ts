@@ -10,6 +10,7 @@ import {
 import { injectStyles } from '../styles';
 import { claimKeystrokes } from '../ui/keystrokes';
 import { descriptionNodes } from './description';
+import { buildSummary } from './summary';
 import { buildSwitch as buildSwitchControl } from './switch';
 
 const PANEL_ID = 'bb-settings-panel';
@@ -18,9 +19,6 @@ const CARD_CLASS =
   'border-rim bg-secondary-bg text-primary-fg shadow-normal';
 const CLOSE_SHAPES =
   '<path d="M6 6 18 18M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
-const CARET_SHAPES =
-  '<path d="M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.41 1.41l4.59-4.59a1 1 0 0 0 0-1.41L10.7 6.7a1 1 0 0 0-1.41.01" fill="currentColor"/>';
-
 let releaseKeystrokes: (() => void) | null = null;
 
 export function toggleSettingsPanel(): void {
@@ -114,16 +112,6 @@ function buildFeatureRow(feature: Feature): HTMLElement {
   ]);
 }
 
-/** Last word and chevron stay on one line, so the chevron never wraps alone. */
-function buildSummary(title: string): HTMLElement {
-  const caret = svgIcon('bb-feature-caret', CARET_SHAPES);
-  const words = title.split(' ');
-  const lastWord = words.pop() ?? '';
-  const lead = words.length > 0 ? `${words.join(' ')} ` : '';
-  const tail = element('span', { class: 'bb-feature-title-tail' }, [lastWord, caret]);
-  return element('summary', { class: 'bb-feature-about-summary font-bold' }, lead ? [lead, tail] : [tail]);
-}
-
 function buildCredit(credit: FeatureCredit): HTMLElement {
   return element('p', { class: 'bb-feature-desc text-small text-tertiary-fg' }, [
     'Idea from ',
@@ -143,14 +131,8 @@ function buildLink(text: string, href: string): HTMLElement {
 }
 
 function buildSubmenuFeature(feature: Feature): HTMLElement {
-  const description = element(
-    'p',
-    { class: 'bb-feature-desc text-small text-tertiary-fg' },
-    descriptionNodes(feature.description),
-  );
   const about = element('details', { class: 'bb-feature-about' }, [
     buildSummary(feature.title),
-    description,
     feature.submenu!(),
   ]);
   return element('li', {}, [about]);

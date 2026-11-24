@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.11.3
+// @version      0.12.0
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -49,6 +49,10 @@
 			resolveGmSet()?.(key, value);
 		} catch {}
 		for (const listener of listeners) listener(key);
+	}
+	function onStoredChange(listener) {
+		listeners.add(listener);
+		return () => listeners.delete(listener);
 	}
 	function resolveGmGet() {
 		if (typeof _GM_getValue === "function") return _GM_getValue;
@@ -261,6 +265,17 @@
 		for (const card of root.querySelectorAll(`[id^="${NATIVE_CARD_ID_PREFIX}"]`)) for (const button of card.querySelectorAll("button[title=\"Play audio\"], button[data-bb-audio-title=\"Play audio\"]")) if (button instanceof HTMLElement) controls.push(button);
 		return controls;
 	}
+	var SENTENCE_PLAY_BUTTON = "button[title=\"Play audio\"], button[data-bb-audio-title=\"Play audio\"]";
+	function findOnScreenSentencePlayControls() {
+		const article = findQuizArticle();
+		if (!article) return [];
+		const controls = [];
+		for (const button of article.querySelectorAll(SENTENCE_PLAY_BUTTON)) {
+			if (!(button instanceof HTMLElement) || button.closest(".bp-reviewable-root")) continue;
+			controls.push(button);
+		}
+		return controls;
+	}
 	function studyQuestionIdOfPlayControl(control) {
 		const card = control.closest(`[id^="${NATIVE_CARD_ID_PREFIX}"]`);
 		if (!(card instanceof HTMLElement)) return null;
@@ -392,7 +407,7 @@
 		œ: "oe",
 		ß: "ss"
 	};
-	function normalize(text) {
+	function normalize$1(text) {
 		return [...text.toLowerCase()].map(foldLetter).join("").trim();
 	}
 	function foldLetter(letter) {
@@ -509,8 +524,8 @@
 		return [...kept].join(",");
 	}
 	function includesSynonym(synonyms, candidate) {
-		const wanted = normalize(candidate);
-		return synonyms.some((synonym) => normalize(synonym) === wanted);
+		const wanted = normalize$1(candidate);
+		return synonyms.some((synonym) => normalize$1(synonym) === wanted);
 	}
 	function synonymWorthAdding(submitted, accepted) {
 		const trimmed = submitted.trim();
@@ -591,6 +606,8 @@ html.bb-mobile-web .bb-settings-launcher-size {
 }
 .bb-feature-about-summary {
   display: block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -637,12 +654,12 @@ html.bb-mobile-web .bb-panel-card li {
 }
 html.bb-mobile-web .bb-feature-about-summary {
   font-size: 0.95rem;
-  line-height: 1.35;
+  line-height: 1.5rem;
 }
-.bb-feature-about[open] .bb-feature-caret {
+.bb-feature-about[open] > .bb-feature-about-summary .bb-feature-caret {
   transform: rotate(90deg);
 }
-.bb-panel-card li:has(.bb-feature-about[open]) {
+.bb-panel-card li {
   align-items: flex-start;
 }
 .bb-feature-desc {
@@ -690,8 +707,49 @@ button.bb-audio-tts {
  * Play controls as TTS white immediately so they do not flash blue while we
  * resolve classic / Gemini / ElevenLabs. \`bb-audio-real\` still wins for recordings.
  */
-.bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
+html.bb-audio-color .bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
   color: rgb(var(--c-primary-fg) / 1) !important;
+}
+.bb-audio-menu {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.65rem 0 0.1rem;
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  list-style: none;
+  border-left: 1px solid rgb(var(--c-rim) / 1);
+}
+.bb-audio-option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.bb-audio-option-copy {
+  min-width: 0;
+}
+.bb-audio-surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-top: 0.9rem;
+}
+.bb-audio-surfaces label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+.bb-audio-surfaces input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: rgb(var(--c-primary-accent) / 1);
+}
+.bb-audio-surfaces[aria-disabled='true'] {
+  opacity: 0.45;
+}
+.bb-audio-surfaces[aria-disabled='true'] label {
+  cursor: default;
 }
 /** Injected answer-bar toggle: swap play↔pause without remounting. */
 #bb-answer-bar-replay .bb-replay-pause {
@@ -1230,11 +1288,11 @@ input.bb-correct-guess {
 		return "unknown";
 	}
 	function gradedBySimilarity(answers, guess) {
-		return Math.max(...answers.map((answer) => similarity(normalize(answer), normalize(guess)))) >= TRANSLATION_SIMILARITY ? "accepted" : "rejected";
+		return Math.max(...answers.map((answer) => similarity(normalize$1(answer), normalize$1(guess)))) >= TRANSLATION_SIMILARITY ? "accepted" : "rejected";
 	}
 	function gradedExactly(answers, guess) {
 		if (LATIN_LETTER.test(guess)) return "unknown";
-		return answers.some((answer) => normalize(answer) === normalize(guess)) ? "accepted" : "rejected";
+		return answers.some((answer) => normalize$1(answer) === normalize$1(guess)) ? "accepted" : "rejected";
 	}
 	function similarity(left, right) {
 		if (left.length === 0) return right.length === 0 ? 1 : 0;
@@ -2017,6 +2075,72 @@ input.bb-correct-guess {
 	function prefetchAudioHref() {
 		return document.querySelector("link#prefetch-audio")?.href ?? document.querySelector("link[rel=\"prefetch\"][as=\"audio\"]")?.href ?? null;
 	}
+	var KANA = new RegExp(`^[${HIRAGANA}${KATAKANA}]$`);
+	var KANJI_CHAR = new RegExp(`^[${KANJI}]$`);
+	var MIN_COVERAGE = .55;
+	var MIN_KANA_COVERAGE = .8;
+	function sentenceStemMatches(stem, onScreen) {
+		const needle = normalize(stem);
+		const hay = normalize(onScreen);
+		if (needle.length === 0 || hay.length === 0) return false;
+		if (sameSentenceText(needle, hay)) return true;
+		if (!screenKanjiAreInStem(needle, hay)) return false;
+		return aligns(needle, hay, coverageNeeded(needle, hay));
+	}
+	function normalize(text) {
+		return text.normalize("NFKC").replace(/\s+/g, "");
+	}
+	function sameSentenceText(needle, hay) {
+		return containsSentence(hay, needle) || containsSentence(needle, hay);
+	}
+	function containsSentence(host, part) {
+		if (part.length < 8 || !host.includes(part)) return false;
+		return part.length / host.length >= .45;
+	}
+	function screenKanjiAreInStem(stem, screen) {
+		const kanji = [...screen].filter((ch) => KANJI_CHAR.test(ch));
+		if (kanji.length === 0) return true;
+		return kanji.filter((ch) => stem.includes(ch)).length / kanji.length >= .8;
+	}
+	function coverageNeeded(stem, screen) {
+		const stemKanji = [...stem].some((ch) => KANJI_CHAR.test(ch));
+		const screenKanji = [...screen].some((ch) => KANJI_CHAR.test(ch));
+		return stemKanji || screenKanji ? MIN_COVERAGE : MIN_KANA_COVERAGE;
+	}
+	function aligns(stem, screen, minCoverage) {
+		if (covers(align(stem, screen, 0), stem.length, minCoverage)) return true;
+		const maxGap = Math.floor(stem.length * (1 - minCoverage));
+		for (let gapStart = 0; gapStart < stem.length; gapStart += 1) for (let gapEnd = gapStart + 1; gapEnd <= stem.length && gapEnd - gapStart <= maxGap; gapEnd += 1) {
+			const left = align(stem.slice(0, gapStart), screen, 0);
+			if (!left) continue;
+			const right = align(stem.slice(gapEnd), screen, left.end);
+			if (!right) continue;
+			if ((left.matched + right.matched) / stem.length >= minCoverage) return true;
+		}
+		return false;
+	}
+	function covers(result, stemLength, minCoverage) {
+		return result !== null && result.matched / stemLength >= minCoverage;
+	}
+	function align(part, screen, from) {
+		let index = from;
+		let skipped = 0;
+		let matched = 0;
+		for (const ch of part) {
+			while (index < screen.length && screen[index] !== ch && KANA.test(screen[index] ?? "")) {
+				index += 1;
+				skipped += 1;
+				if (skipped > matched * 3 + 8) return null;
+			}
+			if (screen[index] !== ch) return null;
+			index += 1;
+			matched += 1;
+		}
+		return {
+			end: index,
+			matched
+		};
+	}
 	var SENTENCE_PLAY = "button[title=\"Play audio\"], button[data-bb-audio-title=\"Play audio\"]";
 	function exampleOnScreenHasAudio() {
 		const shown = shownSentence();
@@ -2043,16 +2167,20 @@ input.bb-correct-guess {
 		return prefetchMatchesOnScreenSentence(article);
 	}
 	function answerBarPrefetchHref() {
+		const shown = shownSentenceAudioUrl();
+		if (shown !== void 0) return shown;
 		const href = prefetchAudioHref();
 		if (!href) return null;
 		if (href.includes("/audio/vocab/pronunciation/")) return pronunciationPrefetchMatchesCard(href) ? href : null;
-		if (isSentencePrefetch(href)) {
-			const article = findQuizArticle();
-			if (prefetchMatchesOnScreenSentence(article)) return href;
-			if (article?.querySelector(".bp-quiz-question") && article.querySelector(SENTENCE_PLAY)) return href;
-			return null;
-		}
+		if (isSentencePrefetch(href)) return prefetchMatchesOnScreenSentence(findQuizArticle()) ? href : null;
 		return null;
+	}
+	function shownSentenceAudioUrl() {
+		const shown = shownSentence();
+		if (!shown) return;
+		const sentence = shown.sentences[shown.index];
+		if (!sentence) return null;
+		return bunproClipUrl(sentence.male_audio_url, sentence.female_audio_url);
 	}
 	function clozeHasPrefetchedSentenceAudio(article) {
 		if (!article.querySelector(".bp-quiz-question")) return false;
@@ -2065,7 +2193,7 @@ input.bb-correct-guess {
 		if (!stem) return false;
 		const onScreen = onScreenSentenceText(article);
 		if (!onScreen) return false;
-		return isCharacterSubsequence(stem, onScreen);
+		return sentenceStemMatches(stem, onScreen);
 	}
 	function isSentencePrefetch(href) {
 		return isBunproSynthesisedAudioUrl(href) || href.includes("/audio/grammar/");
@@ -2096,15 +2224,6 @@ input.bb-correct-guess {
 		if (cloze) return cloze;
 		return findClozeSentence()?.textContent?.trim() ?? "";
 	}
-	function isCharacterSubsequence(needle, haystack) {
-		let from = 0;
-		for (const ch of needle) {
-			const at = haystack.indexOf(ch, from);
-			if (at === -1) return false;
-			from = at + 1;
-		}
-		return true;
-	}
 	function quizHasVisibleSentencePlay(article) {
 		for (const node of article.querySelectorAll(SENTENCE_PLAY)) if (node instanceof HTMLElement && isVisiblyDisplayed(node)) return true;
 		return false;
@@ -2120,13 +2239,28 @@ input.bb-correct-guess {
 		const style = getComputedStyle(el);
 		return style.visibility !== "hidden" && style.display !== "none";
 	}
-	function exampleOriginsFromSentences(sentences) {
-		const origins = new Map();
-		for (const sentence of sentences) {
-			const origin = bunproClipOrigin(sentence.female_audio_url ?? sentence.male_audio_url);
-			if (origin) origins.set(sentence.id, origin);
+	function bunproClipUrl(male, female) {
+		if (readAudioGender() === "female") return female || male || null;
+		return male || female || null;
+	}
+	function readAudioGender() {
+		try {
+			return localStorage.getItem("audio-last-gender") === "Female" ? "female" : "male";
+		} catch {
+			return "male";
 		}
-		return origins;
+	}
+	function exampleClipsFromSentences(sentences) {
+		const clips = new Map();
+		for (const sentence of sentences) {
+			const url = bunproClipUrl(sentence.male_audio_url, sentence.female_audio_url);
+			const origin = bunproClipOrigin(url);
+			if (url && origin) clips.set(sentence.id, {
+				origin,
+				url
+			});
+		}
+		return clips;
 	}
 	var recordings = new Map();
 	function remember(ttsUrls, recording, origin) {
@@ -2147,12 +2281,21 @@ input.bb-correct-guess {
 	function forgetAll() {
 		recordings.clear();
 	}
+	function setActiveReplacement(ttsUrls, recording, origin) {
+		recordings.clear();
+		remember(ttsUrls, recording, origin);
+	}
+	function clearActiveReplacement() {
+		recordings.clear();
+	}
 	function canonicalAudioUrl(url) {
+		let decoded = url;
 		try {
-			return decodeURI(url);
+			decoded = decodeURI(url);
 		} catch {
-			return url;
+			decoded = url;
 		}
+		return decoded.normalize("NFC");
 	}
 	var ANSWER_BAR_REPLAY_ID = "bb-answer-bar-replay";
 	var PLAYING_CLASS = "bb-replay-playing";
@@ -2169,7 +2312,10 @@ input.bb-correct-guess {
 			clearAnswerBarReplay();
 			return;
 		}
-		if (!options.playUrl) return;
+		if (!options.playUrl) {
+			if (options.release) clearAnswerBarReplay();
+			return;
+		}
 		injectStyles();
 		playUrl = options.playUrl;
 		ensureReplayButton(options.playUrl);
@@ -2450,6 +2596,183 @@ input.bb-correct-guess {
 			});
 		});
 	}
+	var listening$1 = false;
+	var current = null;
+	function startDetailsPlay() {
+		if (listening$1) return;
+		document.addEventListener("click", onDetailsClick, true);
+		listening$1 = true;
+	}
+	function stopDetailsPlay() {
+		if (!listening$1) return;
+		document.removeEventListener("click", onDetailsClick, true);
+		listening$1 = false;
+		if (typeof current?.pause === "function") current.pause();
+		current = null;
+	}
+	function onDetailsClick(event) {
+		const button = detailsButton(event.target);
+		if (!button || button.dataset.bbOwnPlay !== "true") return;
+		const url = button.dataset.bbResolvedUrl;
+		if (!url) return;
+		event.preventDefault();
+		event.stopPropagation();
+		play(url);
+	}
+	function detailsButton(target) {
+		if (!(target instanceof Element)) return null;
+		const button = target.closest(".DetailsPitchAccent button");
+		if (!(button instanceof HTMLElement)) return null;
+		const icon = button.querySelector("svg")?.getAttribute("data-name");
+		if (icon !== "PLAY_CIRCLE_FILLED" && icon !== "PAUSE") return null;
+		return button;
+	}
+	function play(url) {
+		current?.pause();
+		const audio = new Audio(url);
+		current = audio;
+		audio.play().catch(() => {
+			if (current === audio) current = null;
+		});
+	}
+	function speakerSurface(reviews, vocab) {
+		if (reviews && vocab) return "both";
+		if (reviews) return "reviews";
+		if (vocab) return "vocab";
+		return "none";
+	}
+	function surfaceChecked(surface, where) {
+		return surface === "both" || surface === where;
+	}
+	var MIGRATED = "audio.migrated";
+	var LEGACY_ENABLED = "feature.human-term-audio.enabled";
+	var KEYS = {
+		annotate: "audio.annotate",
+		color: "audio.color",
+		realSpeakers: "audio.real-speakers",
+		surface: "audio.speaker-surface",
+		download: "audio.download"
+	};
+	var migratedThisPage = false;
+	function readAudioMenu() {
+		ensureMigrated();
+		return {
+			annotate: readStored(KEYS.annotate, true),
+			color: readStored(KEYS.color, true),
+			realSpeakers: readStored(KEYS.realSpeakers, true),
+			surface: readSurface(),
+			download: readStored(KEYS.download, true)
+		};
+	}
+	function realSpeakersOn(where) {
+		const menu = readAudioMenu();
+		if (!menu.realSpeakers) return false;
+		return menu.surface === "both" || menu.surface === where;
+	}
+	function audioMenuActive(menu = readAudioMenu()) {
+		return menu.annotate || menu.color || menu.realSpeakers || menu.download;
+	}
+	function writeAudioFlag(flag, enabled) {
+		ensureMigrated();
+		writeStored(KEYS[flag], enabled);
+	}
+	function writeSpeakerSurface(surface) {
+		ensureMigrated();
+		writeStored(KEYS.surface, surface);
+	}
+	function ensureMigrated() {
+		if (migratedThisPage) return;
+		migratedThisPage = true;
+		if (readStored(MIGRATED, false)) return;
+		const on = readStored(LEGACY_ENABLED, null) !== false;
+		writeStored(KEYS.annotate, readStored(KEYS.annotate, on));
+		writeStored(KEYS.color, readStored(KEYS.color, on));
+		writeStored(KEYS.realSpeakers, readStored(KEYS.realSpeakers, on));
+		writeStored(KEYS.surface, readSurface());
+		writeStored(KEYS.download, readStored(KEYS.download, on));
+		writeStored(MIGRATED, true);
+	}
+	function readSurface(fallback = "both") {
+		const value = readStored(KEYS.surface, fallback);
+		if (value === "reviews" || value === "vocab" || value === "both" || value === "none") return value;
+		return "both";
+	}
+	var REPLAY_ID = "bb-answer-bar-replay";
+	var listening = false;
+	function startAudioDownloads() {
+		if (listening) return;
+		document.addEventListener("contextmenu", onContextMenu, true);
+		listening = true;
+	}
+	function stopAudioDownloads() {
+		if (!listening) return;
+		document.removeEventListener("contextmenu", onContextMenu, true);
+		listening = false;
+	}
+	function onContextMenu(event) {
+		if (!readAudioMenu().download) return;
+		const control = audioControlFrom(event.target);
+		if (!control) return;
+		const url = resolvedAudioUrl(control);
+		if (!url) return;
+		event.preventDefault();
+		event.stopPropagation();
+		downloadResolvedAudio(control, url);
+	}
+	function audioControlFrom(target) {
+		if (!(target instanceof Element)) return null;
+		const button = target.closest("button");
+		if (!(button instanceof HTMLElement)) return null;
+		if (button.id === REPLAY_ID) return button;
+		if (button.dataset.bbResolvedUrl || button.dataset.bbPlayUrl) return button;
+		if (button.dataset.bbAudioTitle === "Play audio" || button.title === "Play audio") return button;
+		const icon = button.querySelector("svg")?.getAttribute("data-name");
+		if (icon === "PLAY_CIRCLE_FILLED" || icon === "PAUSE") return button;
+		return null;
+	}
+	function resolvedAudioUrl(control) {
+		return control.dataset.bbPlayUrl || control.dataset.bbResolvedUrl || null;
+	}
+	function audioDownloadName(url, control) {
+		const fromPath = mp3Name(url);
+		if (fromPath) return fromPath;
+		return `${(control.title || "audio").replace(/[\\/:*?"<>|]+/g, "").trim() || "audio"}.mp3`;
+	}
+	async function downloadResolvedAudio(control, url) {
+		saveBlob(await clipBlob(url), audioDownloadName(url, control));
+	}
+	async function clipBlob(url) {
+		if (!url.startsWith("blob:")) try {
+			const response = await fetch(url);
+			if (response.ok) return response.blob();
+		} catch {}
+		if (url.startsWith("blob:")) return blobFromPage(url);
+		return requestBlob({ url });
+	}
+	async function blobFromPage(url) {
+		return (await fetch(url)).blob();
+	}
+	function saveBlob(blob, filename) {
+		const objectUrl = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = objectUrl;
+		link.download = filename;
+		link.rel = "noopener";
+		document.body.append(link);
+		link.click();
+		link.remove();
+		URL.revokeObjectURL(objectUrl);
+	}
+	function mp3Name(url) {
+		if (url.startsWith("blob:")) return null;
+		try {
+			const last = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+			if (last.toLowerCase().endsWith(".mp3") && last.length > 4 && last.length < 180) return last;
+		} catch {
+			return null;
+		}
+		return null;
+	}
 	function grammarSlugFromPath(pathname = location.pathname) {
 		const match = pathname.match(/^\/grammar_points\/([^/]+)\/?$/);
 		if (!match) return null;
@@ -2474,44 +2797,61 @@ input.bb-correct-guess {
 	var LEGACY_CHIP_ID = "bb-audio-source";
 	function syncAudioSourceIndicator(cue) {
 		removeLegacyChip();
+		const paint = {
+			annotate: cue.annotate !== false,
+			color: cue.color !== false
+		};
 		const answer = findAnswerBarReplayControl() ?? findAnswerBarAudioControl();
-		if (answer && cue.answerOrigin) paintControl(answer, cue.answerOrigin, cue.afterSubmit);
+		if (answer && cue.answerOrigin) paintControl(answer, cue.answerOrigin, cue.afterSubmit, paint, cue.answerUrl);
 		const details = findDetailsPitchPlay();
-		if (details && cue.detailsOrigin) paintControl(details, cue.detailsOrigin, cue.afterSubmit);
-		paintExampleControls(cue.exampleOrigins ?? null, cue.afterSubmit);
+		if (details && cue.detailsOrigin) {
+			paintControl(details, cue.detailsOrigin, cue.afterSubmit, paint, cue.detailsUrl);
+			if (cue.ownDetails) details.dataset.bbOwnPlay = "true";
+			else delete details.dataset.bbOwnPlay;
+		}
+		paintExampleControls(cue.exampleOrigins ?? null, cue.exampleUrls ?? null, cue.afterSubmit, paint);
+		stampSentenceControls(cue.sentenceUrl ?? null);
 	}
 	function clearAudioSourceIndicator() {
 		restorePlayTitles();
 		clearAudioClasses();
 		removeLegacyChip();
 	}
-	function paintExampleControls(origins, afterSubmit) {
+	function paintExampleControls(origins, urls, afterSubmit, paint) {
 		if (!afterSubmit) return;
 		if (origins && origins.size > 0) {
 			for (const control of findExamplesListPlayControls()) {
 				const id = studyQuestionIdOfPlayControl(control);
 				if (id === null) continue;
 				const origin = origins.get(id);
-				if (origin) paintControl(control, origin, afterSubmit);
+				if (origin) paintControl(control, origin, afterSubmit, paint, urls?.get(id) ?? null);
 			}
 			return;
 		}
-		paintExampleControlsPendingTts();
+		paintExampleControlsPendingTts(paint);
 	}
-	function paintExampleControlsPendingTts() {
+	function paintExampleControlsPendingTts(paint) {
+		if (!paint.color) return;
 		for (const control of findExamplesListPlayControls()) {
 			rememberPlayTitle(control);
 			control.classList.add(TTS_AUDIO_CLASS);
 			control.classList.remove(REAL_AUDIO_CLASS);
 		}
 	}
-	function paintControl(control, origin, afterSubmit) {
+	function stampSentenceControls(url) {
+		if (!url) return;
+		for (const control of findOnScreenSentencePlayControls()) control.dataset.bbResolvedUrl = url;
+	}
+	function paintControl(control, origin, afterSubmit, paint, url) {
+		if (url) control.dataset.bbResolvedUrl = url;
 		const label = labelForOrigin(origin);
-		const emphasize = afterSubmit && isRealAudioOrigin(origin);
-		const asTts = afterSubmit && !isRealAudioOrigin(origin);
-		if (control.title === label && control.classList.contains(REAL_AUDIO_CLASS) === emphasize && control.classList.contains(TTS_AUDIO_CLASS) === asTts) return;
+		const emphasize = paint.color && afterSubmit && isRealAudioOrigin(origin);
+		const asTts = paint.color && afterSubmit && !isRealAudioOrigin(origin);
+		const title = paint.annotate ? label : control.dataset[PLAY_TITLE_BACKUP] ?? control.title;
+		if (control.title === title && control.classList.contains(REAL_AUDIO_CLASS) === emphasize && control.classList.contains(TTS_AUDIO_CLASS) === asTts && (!url || control.dataset.bbResolvedUrl === url)) return;
 		rememberPlayTitle(control);
-		if (control.title !== label) control.title = label;
+		const nextTitle = paint.annotate ? label : control.dataset[PLAY_TITLE_BACKUP] ?? control.title;
+		if (control.title !== nextTitle) control.title = nextTitle;
 		control.classList.toggle(REAL_AUDIO_CLASS, emphasize);
 		control.classList.toggle(TTS_AUDIO_CLASS, asTts);
 	}
@@ -2533,7 +2873,12 @@ input.bb-correct-guess {
 		}
 	}
 	function clearAudioClasses() {
-		for (const control of paintedControls()) control.classList.remove(REAL_AUDIO_CLASS, TTS_AUDIO_CLASS);
+		for (const control of paintedControls()) {
+			control.classList.remove(REAL_AUDIO_CLASS, TTS_AUDIO_CLASS);
+			delete control.dataset.bbResolvedUrl;
+			delete control.dataset.bbOwnPlay;
+		}
+		for (const control of findOnScreenSentencePlayControls()) delete control.dataset.bbResolvedUrl;
 	}
 	function removeLegacyChip() {
 		document.getElementById(LEGACY_CHIP_ID)?.remove();
@@ -2657,13 +3002,10 @@ input.bb-correct-guess {
 			forgetOldest();
 		}
 		const [recording, origin] = await Promise.all([lookup.recording, lookup.origin]);
-		if (recording !== null && origin !== null && lookups.get(word) === lookup) {
-			remember(lookup.ttsUrls, recording, origin);
-			return {
-				origin,
-				url: recording
-			};
-		}
+		if (recording !== null && origin !== null && lookups.get(word) === lookup) return {
+			origin,
+			url: recording
+		};
 		return null;
 	}
 	function forgetReplacements() {
@@ -2697,25 +3039,55 @@ input.bb-correct-guess {
 			const item = await fetchReviewable(term);
 			if (!item || !hasTermAudio(item)) return;
 			const bunpro = bunproOrigin(item.has_tts_audio);
-			onOrigins({
-				answer: bunpro,
-				details: bunpro,
-				answerPlayUrl: null
-			});
+			onOrigins(unresolved(bunpro));
 			const audio = synthesisedTermAudio(item);
-			if (!audio) return;
-			const hit = await findReplacement(audio);
+			const termUrl = audio?.ttsUrls[0] ?? firstClip(item);
+			if (!audio) {
+				onOrigins(bunproOnly(bunpro, termUrl, options.ignoreExampleAudio === true));
+				return;
+			}
+			const hit = options.useRealSpeakers !== false ? await findReplacement(audio) : null;
 			const leaveAnswerOnBunpro = !options.ignoreExampleAudio && exampleOnScreenHasAudio();
-			const bunproPlayUrl = answerBarPrefetchHref() ?? audio.ttsUrls[0] ?? null;
-			const answerBunpro = originForBunproPlayUrl(bunproPlayUrl, bunpro);
+			const sentenceUrl = leaveAnswerOnBunpro ? answerBarPrefetchHref() : null;
+			const answerBunpro = originForBunproPlayUrl(leaveAnswerOnBunpro ? sentenceUrl : termUrl, bunpro);
+			const termOrigin = originForBunproPlayUrl(termUrl, bunpro);
 			onOrigins({
 				answer: leaveAnswerOnBunpro ? answerBunpro : hit?.origin ?? answerBunpro,
-				details: hit?.origin ?? bunpro,
-				answerPlayUrl: leaveAnswerOnBunpro ? bunproPlayUrl : hit?.url ?? bunproPlayUrl
+				details: hit?.origin ?? termOrigin,
+				answerPlayUrl: leaveAnswerOnBunpro ? sentenceUrl : hit?.url ?? termUrl,
+				detailsPlayUrl: hit?.url ?? termUrl,
+				rewriteFrom: hit && !leaveAnswerOnBunpro ? audio.ttsUrls : [],
+				recordingUrl: hit?.url ?? null,
+				lookupDone: true
 			});
 		} catch (error) {
 			warnOnce("term-audio", "Could not replace synthesised term audio:", error);
 		}
+	}
+	function unresolved(origin) {
+		return {
+			answer: origin,
+			details: origin,
+			answerPlayUrl: null,
+			detailsPlayUrl: null,
+			rewriteFrom: [],
+			recordingUrl: null,
+			lookupDone: false
+		};
+	}
+	function bunproOnly(origin, termUrl, ignoreExampleAudio) {
+		return {
+			answer: origin,
+			details: origin,
+			answerPlayUrl: (ignoreExampleAudio ? null : answerBarPrefetchHref()) ?? termUrl,
+			detailsPlayUrl: termUrl,
+			rewriteFrom: [],
+			recordingUrl: null,
+			lookupDone: true
+		};
+	}
+	function firstClip(item) {
+		return item.male_audio_url ?? item.female_audio_url;
 	}
 	function originForBunproPlayUrl(url, fallback) {
 		if (url && isBunproSynthesisedAudioUrl(url)) return bunproClipOrigin(url) ?? fallback;
@@ -2781,6 +3153,107 @@ input.bb-correct-guess {
 			value: natives
 		});
 		return natives;
+	}
+	function descriptionNodes(text) {
+		const nodes = [];
+		const pattern = /`([^`]+)`/g;
+		let last = 0;
+		for (const match of text.matchAll(pattern)) {
+			const start = match.index ?? 0;
+			if (start > last) nodes.push(text.slice(last, start));
+			nodes.push(element("kbd", { class: "bb-kbd" }, [match[1]]));
+			last = start + match[0].length;
+		}
+		if (last < text.length) nodes.push(text.slice(last));
+		return nodes.length > 0 ? nodes : [text];
+	}
+	var CARET_SHAPES = "<path d=\"M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.41 1.41l4.59-4.59a1 1 0 0 0 0-1.41L10.7 6.7a1 1 0 0 0-1.41.01\" fill=\"currentColor\"/>";
+	function buildSummary(title) {
+		const caret = svgIcon("bb-feature-caret", CARET_SHAPES);
+		const words = title.split(" ");
+		const lastWord = words.pop() ?? "";
+		const lead = words.length > 0 ? `${words.join(" ")} ` : "";
+		const tail = element("span", { class: "bb-feature-title-tail" }, [lastWord, caret]);
+		return element("summary", { class: "bb-feature-about-summary font-bold" }, lead ? [lead, tail] : [tail]);
+	}
+	function buildSwitch$1(label, checked, onToggle) {
+		const button = element("button", {
+			role: "switch",
+			"aria-label": label
+		});
+		const paint = (enabled) => {
+			button.setAttribute("aria-checked", String(enabled));
+			button.className = `bb-switch ${enabled ? "bg-primary-accent" : "bg-tertiary-bg"}`;
+		};
+		button.addEventListener("click", () => {
+			const next = button.getAttribute("aria-checked") !== "true";
+			onToggle(next);
+			paint(next);
+		});
+		paint(checked);
+		return button;
+	}
+	var AUDIO_FEATURE_ID = "human-term-audio";
+	function buildAudioMenu() {
+		const menu = readAudioMenu();
+		const places = buildSurfaceChecks(menu.surface, menu.realSpeakers);
+		return element("ul", { class: "bb-audio-menu" }, [
+			element("li", {}, [optionRow("Annotate source", "Show the audio source when you hover a play button.", menu.annotate, (enabled) => {
+				writeAudioFlag("annotate", enabled);
+				publish();
+			})]),
+			element("li", {}, [optionRow("Color code human vs TTS", "Play button will be colored when it's a real human recording, else white when TTS.", menu.color, (enabled) => {
+				writeAudioFlag("color", enabled);
+				publish();
+			})]),
+			element("li", {}, [optionRow("Use real speakers instead of TTS", "A real speaker reads the term when the question has no clip of its own: a sentence with no audio (A5 and similar), or a translation question with no sentence.", menu.realSpeakers, (enabled) => {
+				writeAudioFlag("realSpeakers", enabled);
+				setPlacesEnabled(places, enabled);
+				publish();
+			}, places)]),
+			element("li", {}, [optionRow("Right-click to download", "Right-click a play button to save the clip that button would play.", menu.download, (enabled) => {
+				writeAudioFlag("download", enabled);
+				publish();
+			})])
+		]);
+	}
+	function optionRow(title, description, checked, onToggle, extra) {
+		const about = element("details", { class: "bb-feature-about grow" }, [buildSummary(title), element("p", { class: "bb-feature-desc text-small text-tertiary-fg" }, descriptionNodes(description))]);
+		return element("div", { class: "bb-audio-option" }, [extra ? element("div", { class: "bb-audio-option-copy grow" }, [about, extra]) : about, buildSwitch$1(title, checked, onToggle)]);
+	}
+	function buildSurfaceChecks(selected, enabled) {
+		const reviews = checkbox("Reviews", surfaceChecked(selected, "reviews"));
+		const vocab = checkbox("Vocab page", surfaceChecked(selected, "vocab"));
+		const row = element("div", {
+			class: "bb-audio-surfaces",
+			role: "group",
+			"aria-label": "Use real speakers on"
+		}, [reviews.label, vocab.label]);
+		const publishPlaces = () => {
+			writeSpeakerSurface(speakerSurface(reviews.input.checked, vocab.input.checked));
+			publish();
+		};
+		reviews.input.addEventListener("change", publishPlaces);
+		vocab.input.addEventListener("change", publishPlaces);
+		setPlacesEnabled(row, enabled);
+		return row;
+	}
+	function checkbox(label, checked) {
+		const input = element("input", { type: "checkbox" });
+		input.checked = checked;
+		return {
+			label: element("label", { class: "text-small text-secondary-fg" }, [input, label]),
+			input
+		};
+	}
+	function setPlacesEnabled(row, enabled) {
+		row.setAttribute("aria-disabled", String(!enabled));
+		for (const input of row.querySelectorAll("input")) input.disabled = !enabled;
+	}
+	function publish() {
+		const feature = listFeatures().find((item) => item.id === AUDIO_FEATURE_ID);
+		if (!feature) return;
+		setFeatureEnabled(feature, audioMenuActive());
 	}
 	var cache = new Map();
 	function searchVocab(query) {
@@ -2853,33 +3326,44 @@ input.bb-correct-guess {
 	var shownFor = null;
 	var shownAnswerOrigin = null;
 	var shownDetailsOrigin = null;
-	var shownExampleOrigins = null;
+	var shownExampleClips = null;
 	var shownAnswerPlayUrl = null;
+	var shownDetailsPlayUrl = null;
+	var answerSettled = false;
+	var detailsClickOwned = false;
 	var cueAfterReady = false;
+	var stopAudioSettings = null;
 	var humanTermAudioFeature = {
 		id: "human-term-audio",
-		title: "Play real speakers instead of TTS audio",
-		description: "When Bunpro would play synthesised term audio (TTS / text-to-speech), prefer a real recording instead — looked up like Yomitan (JapanesePod101, then Jisho). Play buttons are white for TTS and blue for real audio; the tooltip names the source.",
+		title: "Audio",
+		description: "",
+		submenu: buildAudioMenu,
 		enabledByDefault: true,
 		start() {
 			injectStyles();
 			warnIfGmBridgeMissing();
-			startReplacingAudio();
+			readAudioMenu();
+			syncAudioPresentation();
+			startAudioDownloads();
+			startDetailsPlay();
 			setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
 			setTermAutoplayPlayer(playAnswerBarRecording);
 			stopWatchingQuiz$1 = watchQuizState(onQuizStateChange$1);
+			stopAudioSettings = onStoredChange(onAudioSetting);
 			stopWatchingRemounts = watchBodyRemounts(() => {
 				const state = readQuizState();
 				const review = state.reviewable ? reviewKey(state) : null;
 				if (review !== null && shownFor === review && (shownAnswerOrigin !== null || shownDetailsOrigin !== null)) {
 					if (shownAnswerOrigin !== null && exampleOnScreenHasAudio()) {
-						const prefetch = answerBarPrefetchHref();
-						if (prefetch) {
-							shownAnswerPlayUrl = prefetch;
-							shownAnswerOrigin = bunproClipOrigin(prefetch) ?? "bunpro-tts";
+						const clip = answerBarPrefetchHref();
+						if (clip) {
+							shownAnswerPlayUrl = clip;
+							shownAnswerOrigin = bunproClipOrigin(clip) ?? "bunpro-tts";
 							cancelScheduledTermAutoplay();
 						} else if (isRealAudioOrigin(shownAnswerOrigin)) {
 							shownAnswerOrigin = "bunpro-tts";
+							shownAnswerPlayUrl = null;
+							answerSettled = true;
 							cancelScheduledTermAutoplay();
 						}
 					}
@@ -2890,16 +3374,23 @@ input.bb-correct-guess {
 					refreshReview(state);
 					return;
 				}
-				if (shownAnswerOrigin !== null || shownDetailsOrigin !== null || shownExampleOrigins !== null) paintCues();
+				if (shownAnswerOrigin !== null || shownDetailsOrigin !== null || shownExampleClips !== null) paintCues();
 				refreshItemPage();
 			});
+			refreshItemPage();
 		},
 		stop() {
 			stopWatchingRemounts?.();
 			stopWatchingRemounts = null;
 			stopWatchingQuiz$1?.();
 			stopWatchingQuiz$1 = null;
+			stopAudioSettings?.();
+			stopAudioSettings = null;
+			stopAudioDownloads();
+			stopDetailsPlay();
+			document.documentElement.classList.remove("bb-audio-color");
 			stopReplacingAudio();
+			clearActiveReplacement();
 			forgetReplacements();
 			clearAudioSourceIndicator();
 			clearAnswerBarReplay();
@@ -2909,8 +3400,11 @@ input.bb-correct-guess {
 			shownFor = null;
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
-			shownExampleOrigins = null;
+			shownExampleClips = null;
 			shownAnswerPlayUrl = null;
+			shownDetailsPlayUrl = null;
+			answerSettled = false;
+			detailsClickOwned = false;
 			cueAfterReady = false;
 		}
 	};
@@ -2930,8 +3424,12 @@ input.bb-correct-guess {
 			shownFor = review;
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
-			shownExampleOrigins = null;
+			shownExampleClips = null;
 			shownAnswerPlayUrl = null;
+			shownDetailsPlayUrl = null;
+			answerSettled = false;
+			detailsClickOwned = false;
+			clearActiveReplacement();
 			clearAudioSourceIndicator();
 			clearAnswerBarReplay();
 			setActiveTermAutoplayReview(review);
@@ -2939,29 +3437,19 @@ input.bb-correct-guess {
 		loadExampleOrigins(term, () => reviewKey(readQuizState()) === review);
 		if (term.type !== "vocab") {
 			adoptBunproAnswerClip(review);
-			if (shownExampleOrigins !== null || shownAnswerPlayUrl !== null) paintCues();
+			if (shownExampleClips !== null || shownAnswerPlayUrl !== null) paintCues();
 			return;
 		}
 		await loadTermAudio(term, (origins) => {
 			if (reviewKey(readQuizState()) !== review) return;
 			shownFor = review;
-			const keepBunproAnswer = shownAnswerOrigin !== null && !isRealAudioOrigin(shownAnswerOrigin) && isRealAudioOrigin(origins.answer) && exampleOnScreenHasAudio();
-			shownAnswerOrigin = keepBunproAnswer ? shownAnswerOrigin : origins.answer;
-			shownDetailsOrigin = origins.details;
-			shownAnswerPlayUrl = origins.answerPlayUrl;
-			if (keepBunproAnswer) {
-				const prefetch = answerBarPrefetchHref();
-				if (prefetch) {
-					shownAnswerPlayUrl = prefetch;
-					shownAnswerOrigin = bunproClipOrigin(prefetch) ?? shownAnswerOrigin;
-				}
-			}
+			applyTermOrigins(origins, { keepSentenceOverTerm: true });
 			paintCues();
 			maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin);
-		});
+		}, { useRealSpeakers: realSpeakersOn("reviews") });
 		if (reviewKey(readQuizState()) !== review) return;
-		if (shownFor === review && shownAnswerOrigin === null && shownDetailsOrigin === null && shownExampleOrigins === null) clearShown();
-		else if (shownAnswerOrigin !== null || shownDetailsOrigin !== null || shownExampleOrigins !== null) paintCues();
+		if (shownFor === review && shownAnswerOrigin === null && shownDetailsOrigin === null && shownExampleClips === null) clearShown();
+		else if (shownAnswerOrigin !== null || shownDetailsOrigin !== null || shownExampleClips !== null) paintCues();
 	}
 	async function refreshItemPage() {
 		const vocabSlug = vocabSlugFromPath();
@@ -2987,7 +3475,11 @@ input.bb-correct-guess {
 			shownFor = key;
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
-			shownExampleOrigins = null;
+			shownExampleClips = null;
+			shownDetailsPlayUrl = null;
+			answerSettled = false;
+			detailsClickOwned = false;
+			clearActiveReplacement();
 			clearAudioSourceIndicator();
 		} else if (shownDetailsOrigin === null) return;
 		paintCues();
@@ -2997,18 +3489,20 @@ input.bb-correct-guess {
 		await loadTermAudio(term, (origins) => {
 			if (vocabSlugFromPath() !== slug) return;
 			shownFor = key;
-			shownAnswerOrigin = origins.answer;
-			shownDetailsOrigin = origins.details;
+			applyTermOrigins(origins, { keepSentenceOverTerm: false });
 			paintCues();
-		}, { ignoreExampleAudio: true });
+		}, {
+			ignoreExampleAudio: true,
+			useRealSpeakers: realSpeakersOn("vocab")
+		});
 		if (vocabSlugFromPath() !== slug) return;
-		if (shownFor === key && shownDetailsOrigin === null && shownExampleOrigins === null) clearShown();
-		else if (shownDetailsOrigin !== null || shownExampleOrigins !== null) paintCues();
+		if (shownFor === key && shownDetailsOrigin === null && shownExampleClips === null) clearShown();
+		else if (shownDetailsOrigin !== null || shownExampleClips !== null) paintCues();
 	}
 	async function refreshGrammarPage(slug) {
 		const key = `page:grammar:${slug}`;
 		cueAfterReady = true;
-		if (shownFor === key && shownExampleOrigins !== null) {
+		if (shownFor === key && shownExampleClips !== null) {
 			paintCues();
 			return;
 		}
@@ -3016,36 +3510,85 @@ input.bb-correct-guess {
 			shownFor = key;
 			shownAnswerOrigin = null;
 			shownDetailsOrigin = null;
-			shownExampleOrigins = null;
+			shownExampleClips = null;
+			shownAnswerPlayUrl = null;
+			shownDetailsPlayUrl = null;
+			answerSettled = false;
+			detailsClickOwned = false;
+			clearActiveReplacement();
 			clearAudioSourceIndicator();
-		} else if (shownExampleOrigins === null) return;
+		} else if (shownExampleClips === null) return;
 		paintCues();
 		const term = await reviewableFromGrammarSlug(slug);
 		if (!term || grammarSlugFromPath() !== slug) return;
 		await loadExampleOrigins(term, () => grammarSlugFromPath() === slug);
 		if (grammarSlugFromPath() !== slug) return;
-		if (shownFor === key && shownExampleOrigins === null) clearShown();
+		if (shownFor === key && shownExampleClips === null) clearShown();
 	}
 	async function loadExampleOrigins(term, stillCurrent) {
 		try {
 			const sentences = await fetchStudyQuestions(term);
 			if (!stillCurrent()) return;
-			shownExampleOrigins = exampleOriginsFromSentences(sentences);
+			shownExampleClips = exampleClipsFromSentences(sentences);
 			paintCues();
 		} catch {}
 	}
+	function applyTermOrigins(origins, options) {
+		if (!origins.lookupDone) {
+			if (!answerSettled) {
+				shownAnswerOrigin = origins.answer;
+				shownDetailsOrigin = origins.details;
+			}
+			return;
+		}
+		if (options.keepSentenceOverTerm && shownAnswerOrigin !== null && !isRealAudioOrigin(shownAnswerOrigin) && isRealAudioOrigin(origins.answer) && exampleOnScreenHasAudio()) {
+			const clip = answerBarPrefetchHref();
+			shownAnswerPlayUrl = clip;
+			if (clip) shownAnswerOrigin = bunproClipOrigin(clip) ?? shownAnswerOrigin;
+		} else {
+			shownAnswerOrigin = origins.answer;
+			shownAnswerPlayUrl = origins.answerPlayUrl;
+		}
+		shownDetailsOrigin = origins.details;
+		shownDetailsPlayUrl = origins.detailsPlayUrl;
+		if (!origins.lookupDone) return;
+		answerSettled = true;
+		detailsClickOwned = Boolean(origins.recordingUrl) && origins.rewriteFrom.length === 0;
+		if (origins.recordingUrl && origins.rewriteFrom.length > 0) {
+			setActiveReplacement(origins.rewriteFrom, origins.recordingUrl, origins.details);
+			return;
+		}
+		clearActiveReplacement();
+	}
 	function paintCues() {
+		const menu = readAudioMenu();
 		const afterSubmit = cueAfterReady || readQuizState().isPostAttempt;
 		syncAnswerBarReplay({
 			enabled: afterSubmit,
-			playUrl: shownAnswerPlayUrl
+			playUrl: shownAnswerPlayUrl,
+			release: answerSettled && shownAnswerPlayUrl === null
 		});
 		syncAudioSourceIndicator({
 			afterSubmit,
 			answerOrigin: shownAnswerOrigin,
 			detailsOrigin: shownDetailsOrigin,
-			exampleOrigins: shownExampleOrigins
+			exampleOrigins: exampleOrigins(shownExampleClips),
+			exampleUrls: exampleUrls(shownExampleClips),
+			answerUrl: shownAnswerPlayUrl,
+			detailsUrl: shownDetailsPlayUrl,
+			sentenceUrl: exampleOnScreenHasAudio() ? shownAnswerPlayUrl : null,
+			annotate: menu.annotate,
+			color: menu.color,
+			ownDetails: detailsClickOwned
 		});
+	}
+	function exampleOrigins(clips) {
+		if (!clips) return null;
+		return new Map([...clips].map(([id, clip]) => [id, clip.origin]));
+	}
+	function exampleUrls(clips) {
+		if (!clips) return null;
+		return new Map([...clips].map(([id, clip]) => [id, clip.url]));
 	}
 	function adoptBunproAnswerClip(review) {
 		if (!readQuizState().isPostAttempt) return;
@@ -3068,12 +3611,36 @@ input.bb-correct-guess {
 		shownFor = null;
 		shownAnswerOrigin = null;
 		shownDetailsOrigin = null;
-		shownExampleOrigins = null;
+		shownExampleClips = null;
 		shownAnswerPlayUrl = null;
+		shownDetailsPlayUrl = null;
+		answerSettled = false;
+		detailsClickOwned = false;
 		cueAfterReady = false;
 		setActiveTermAutoplayReview(null);
+		clearActiveReplacement();
 		clearAnswerBarReplay();
 		clearAudioSourceIndicator();
+	}
+	function onAudioSetting(key) {
+		if (!key.startsWith("audio.") || key === "audio.migrated") return;
+		syncAudioPresentation();
+		shownFor = null;
+		const state = readQuizState();
+		if (state.reviewable && reviewKey(state) !== null) {
+			refreshReview(state);
+			return;
+		}
+		refreshItemPage();
+	}
+	function syncAudioPresentation() {
+		document.documentElement.classList.toggle("bb-audio-color", readAudioMenu().color);
+		if (readAudioMenu().realSpeakers) {
+			startReplacingAudio();
+			return;
+		}
+		stopReplacingAudio();
+		clearActiveReplacement();
 	}
 	var MOBILE_WEB_CLASS = "bb-mobile-web";
 	var MOBILE_UA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
@@ -3682,24 +4249,10 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.11.3";
-	function descriptionNodes(text) {
-		const nodes = [];
-		const pattern = /`([^`]+)`/g;
-		let last = 0;
-		for (const match of text.matchAll(pattern)) {
-			const start = match.index ?? 0;
-			if (start > last) nodes.push(text.slice(last, start));
-			nodes.push(element("kbd", { class: "bb-kbd" }, [match[1]]));
-			last = start + match[0].length;
-		}
-		if (last < text.length) nodes.push(text.slice(last));
-		return nodes.length > 0 ? nodes : [text];
-	}
+	var version = "0.12.0";
 	var PANEL_ID = "bb-settings-panel";
 	var CARD_CLASS = "bb-panel-card relative z-1 flex flex-col overflow-hidden rounded-normal border border-rim bg-secondary-bg text-primary-fg shadow-normal";
 	var CLOSE_SHAPES = "<path d=\"M6 6 18 18M18 6 6 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/>";
-	var CARET_SHAPES = "<path d=\"M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.41 1.41l4.59-4.59a1 1 0 0 0 0-1.41L10.7 6.7a1 1 0 0 0-1.41.01\" fill=\"currentColor\"/>";
 	var releaseKeystrokes = null;
 	function toggleSettingsPanel() {
 		if (document.getElementById(PANEL_ID)) {
@@ -3750,16 +4303,9 @@ input.bb-correct-guess {
 		return element("ul", { class: "grid gap-16" }, listFeatures().map(buildFeatureRow));
 	}
 	function buildFeatureRow(feature) {
+		if (feature.submenu) return buildSubmenuFeature(feature);
 		const description = element("p", { class: "bb-feature-desc text-small text-tertiary-fg" }, descriptionNodes(feature.description));
 		return element("li", { class: "flex items-center justify-between gap-16" }, [element("details", { class: "bb-feature-about grow" }, [buildSummary(feature.title), ...feature.credit ? [description, buildCredit(feature.credit)] : [description]]), buildSwitch(feature)]);
-	}
-	function buildSummary(title) {
-		const caret = svgIcon("bb-feature-caret", CARET_SHAPES);
-		const words = title.split(" ");
-		const lastWord = words.pop() ?? "";
-		const lead = words.length > 0 ? `${words.join(" ")} ` : "";
-		const tail = element("span", { class: "bb-feature-title-tail" }, [lastWord, caret]);
-		return element("summary", { class: "bb-feature-about-summary font-bold" }, lead ? [lead, tail] : [tail]);
 	}
 	function buildCredit(credit) {
 		return element("p", { class: "bb-feature-desc text-small text-tertiary-fg" }, [
@@ -3778,22 +4324,13 @@ input.bb-correct-guess {
 			class: "text-primary-accent"
 		}, [text]);
 	}
+	function buildSubmenuFeature(feature) {
+		return element("li", {}, [element("details", { class: "bb-feature-about" }, [buildSummary(feature.title), feature.submenu()])]);
+	}
 	function buildSwitch(feature) {
-		const button = element("button", {
-			role: "switch",
-			"aria-label": feature.title
+		return buildSwitch$1(feature.title, isFeatureEnabled(feature), (enabled) => {
+			setFeatureEnabled(feature, enabled);
 		});
-		const paint = () => {
-			const enabled = isFeatureEnabled(feature);
-			button.setAttribute("aria-checked", String(enabled));
-			button.className = `bb-switch ${enabled ? "bg-primary-accent" : "bg-tertiary-bg"}`;
-		};
-		button.addEventListener("click", () => {
-			setFeatureEnabled(feature, !isFeatureEnabled(feature));
-			paint();
-		});
-		paint();
-		return button;
 	}
 	var LAUNCHER_MARKER = "data-bb-launcher";
 	function mountSettingsLaunchers() {

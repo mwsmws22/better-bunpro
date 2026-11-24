@@ -60,8 +60,7 @@ let stopAudioSettings: (() => void) | null = null;
 export const humanTermAudioFeature: Feature = {
   id: 'human-term-audio',
   title: 'Audio',
-  description:
-    'Source tooltips, real-vs-TTS color, real speakers for term audio, and right-click download.',
+  description: '',
   submenu: buildAudioMenu,
   enabledByDefault: true,
 

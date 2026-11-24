@@ -12,7 +12,7 @@ Built with [vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey). 
 - After a wrong cloze answer, Enter / submit show the answer instead of skipping ahead
 - Add a missed vocab translation as a synonym (button or **S**)
 - Left Arrow to re-edit a wrong answer without deleting the last character
-- Audio menu: source tooltips, real-vs-TTS color, real speakers for term-only clips (reviews and/or the vocab page), right-click to download the clip a button would play
+- Audio menu: source tooltips, human-vs-TTS color, real speakers for term-only clips (reviews and/or the vocab page), right-click to download the clip a button would play
 - Fully hide review SRS (pairs with Bunpro’s Review SRS → Hide)
 - Improved web mobile experience (**beta**, off by default — the review fills the visible screen with the answer bar at the bottom; only the cloze and hints scroll inside that space; a pull down from the top of the prompt or the header reloads the page; the underline stays low after grading; an answer that was given, not solved, is shown as incorrect; in the fullscreen app the answer bar stays above the keyboard; mobile type, hint stack)
 

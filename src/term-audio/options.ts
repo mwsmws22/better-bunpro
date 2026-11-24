@@ -1,7 +1,7 @@
 import { readStored, writeStored } from '../settings/store';
+import { type SpeakerSurface } from './speaker-surface';
 
-/** Where term TTS may be replaced with a real speaker. */
-export type SpeakerSurface = 'reviews' | 'vocab' | 'both';
+export { speakerSurface, surfaceChecked, type SpeakerSurface } from './speaker-surface';
 
 export interface AudioMenu {
   annotate: boolean;
@@ -81,7 +81,7 @@ function ensureMigrated(): void {
 
 function readSurface(fallback: SpeakerSurface = 'both'): SpeakerSurface {
   const value = readStored(KEYS.surface, fallback);
-  if (value === 'reviews' || value === 'vocab' || value === 'both') {
+  if (value === 'reviews' || value === 'vocab' || value === 'both' || value === 'none') {
     return value;
   }
   return 'both';

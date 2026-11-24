@@ -63,6 +63,8 @@ html.bb-mobile-web .bb-settings-launcher-size {
 }
 .bb-feature-about-summary {
   display: block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -109,12 +111,12 @@ html.bb-mobile-web .bb-panel-card li {
 }
 html.bb-mobile-web .bb-feature-about-summary {
   font-size: 0.95rem;
-  line-height: 1.35;
+  line-height: 1.5rem;
 }
-.bb-feature-about[open] .bb-feature-caret {
+.bb-feature-about[open] > .bb-feature-about-summary .bb-feature-caret {
   transform: rotate(90deg);
 }
-.bb-panel-card li:has(.bb-feature-about[open]) {
+.bb-panel-card li {
   align-items: flex-start;
 }
 .bb-feature-desc {
@@ -167,10 +169,11 @@ html.bb-audio-color .bp-reviewable-root [id^="study-question-"] button[title="Pl
 }
 .bb-audio-menu {
   display: grid;
-  gap: 0.85rem;
-  margin-top: 0.85rem;
-  padding: 0;
+  gap: 0.7rem;
+  margin: 0.65rem 0 0.1rem;
+  padding: 0.1rem 0 0.1rem 0.85rem;
   list-style: none;
+  border-left: 1px solid rgb(var(--c-rim) / 1);
 }
 .bb-audio-option {
   display: flex;
@@ -179,26 +182,31 @@ html.bb-audio-color .bp-reviewable-root [id^="study-question-"] button[title="Pl
   gap: 0.75rem;
 }
 .bb-audio-option-copy {
-  display: grid;
-  gap: 0.2rem;
   min-width: 0;
 }
-.bb-audio-radios {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0.55rem 0 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-.bb-audio-radios legend {
-  margin-bottom: 0.25rem;
-  padding: 0;
-}
-.bb-audio-radios label {
+.bb-audio-surfaces {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-top: 0.9rem;
+}
+.bb-audio-surfaces label {
+  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+.bb-audio-surfaces input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: rgb(var(--c-primary-accent) / 1);
+}
+.bb-audio-surfaces[aria-disabled='true'] {
+  opacity: 0.45;
+}
+.bb-audio-surfaces[aria-disabled='true'] label {
+  cursor: default;
 }
 /** Injected answer-bar toggle: swap play↔pause without remounting. */
 #bb-answer-bar-replay .bb-replay-pause {
