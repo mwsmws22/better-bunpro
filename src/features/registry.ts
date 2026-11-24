@@ -14,6 +14,8 @@ export interface Feature {
   description: string;
   credit?: FeatureCredit;
   enabledByDefault: boolean;
+  /** Nested controls in place of the single on/off switch. */
+  submenu?: () => HTMLElement;
   start(): void;
   stop(): void;
 }

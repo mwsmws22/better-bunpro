@@ -2,11 +2,16 @@ Fixes and features for [Bunpro](https://bunpro.jp) I wish were natively implemen
 
 Open settings from the **sliders icon** in the site header (between Search and Help), in the quiz toolbar, or Tampermonkey → Better Bunpro → Settings.
 
-### Play real speakers instead of TTS audio
+### Audio
 
-When Bunpro would play TTS (text-to-speech) vocab audio, this prefers a recording from a Japanese speaker — looked up the same way [Yomitan](https://github.com/yomidevs/yomitan) does. Play buttons are **white** for TTS and **blue** for real audio; the tooltip reveals the source (JPod101, Jisho, Bunpro Classic / Gemini / ElevenLabs TTS, or Bunpro Recording).
+One **Audio** section in settings, with separate switches:
 
-After you answer, the answer-bar control is a simple **play ↔ pause** toggle (click or `P`) — including when Bunpro autoplays on a correct answer — without opening Bunpro’s X / timer player bar. Sentence audio stays on Bunpro’s clip; term-only cards can fall back to a JPod recording in the same control. Prefetch left over from the previous review is ignored so the wrong sentence does not play. Quiz hotkeys (`P`, `S`, `Tab`, and the rest) do not steal keys while you type in other fields — for example Bunpro’s report-bug box. If Tampermonkey’s privilege bridge is missing (so dictionary lookups cannot run), a one-time alert explains that Update/Reinstall is needed.
+- **Annotate audio** — hover a play button to see the source (JPod101, Jisho, Bunpro Classic / Gemini / ElevenLabs TTS, or Bunpro Recording).
+- **Color real vs TTS** — blue when a real recording will play, white when it is text-to-speech.
+- **Use real speakers instead of TTS** — only when the clip is the term itself: a sentence with no audio (A5 and similar), or a translation question with no sentence. Sentence clips stay on Bunpro’s own file. Choose **Reviews**, **Vocab page**, or both. Lookups follow [Yomitan](https://github.com/yomidevs/yomitan) (JapanesePod101, then Jisho).
+- **Right-click to download** — right-click a play button to save the clip that button would play.
+
+After you answer, the answer-bar control is a simple **play ↔ pause** toggle (click or `P`) — including when Bunpro autoplays on a correct answer — without opening Bunpro’s X / timer player bar. Each button is bound to the file for the card on screen; a prefetch left over from the previous review is not played. Quiz hotkeys (`P`, `S`, `Tab`, and the rest) do not steal keys while you type in other fields — for example Bunpro’s report-bug box. If Tampermonkey’s privilege bridge is missing (so dictionary lookups cannot run), a one-time alert explains that Update/Reinstall is needed.
 
 ### Show unverified example sentences for A5 vocab
 

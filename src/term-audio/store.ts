@@ -53,13 +53,34 @@ export function forgetAll(): void {
 }
 
 /**
+ * The only recording the page may substitute. The previous card's URLs are
+ * dropped first, so a leftover clip cannot play that card's file.
+ */
+export function setActiveReplacement(
+  ttsUrls: readonly string[],
+  recording: string,
+  origin: AudioOrigin,
+): void {
+  recordings.clear();
+  remember(ttsUrls, recording, origin);
+}
+
+export function clearActiveReplacement(): void {
+  recordings.clear();
+}
+
+/**
  * Bunpro stores some clips percent-encoded and some not, and the Audio element
- * may rewrite the href, so every lookup goes through the same decoded key.
+ * may rewrite the href. Kana in those paths is sometimes composed (べ) and
+ * sometimes decomposed (へ + dakuten). Every lookup uses one decoded NFC key
+ * so the recording is found for the file that actually plays.
  */
 export function canonicalAudioUrl(url: string): string {
+  let decoded = url;
   try {
-    return decodeURI(url);
+    decoded = decodeURI(url);
   } catch {
-    return url;
+    decoded = url;
   }
+  return decoded.normalize('NFC');
 }

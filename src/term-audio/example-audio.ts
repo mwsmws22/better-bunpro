@@ -4,6 +4,7 @@ import { readQuizState } from '../bunpro/quiz-state';
 import { shownSentence } from '../quiz-sentence/slot';
 import { bunproClipOrigin, isBunproSynthesisedAudioUrl, type AudioOrigin } from './origin';
 import { prefetchAudioHref } from './prefetch-audio';
+import { sentenceStemMatches } from './sentence-match';
 
 /**
  * Sentence-example speakers use this title. Term controls do not:
@@ -44,11 +45,9 @@ const SENTENCE_PLAY =
  *   points at the sentence TTS file.
  * - Reliable signals: our injected `shownSentence` audio URLs, a real
  *   `study-question-*` / `data-bb-study-question` card with a play button, a
- *   **visible** sentence play button, study-question / injected surface +
- *   prefetch under `/audio/vocab/tts/`, cloze with `/tts/` prefetch unless Bunpro
- *   shows “Audio not available…”, or question text that **matches** the `/tts/`
- *   prefetch filename (furigana-tolerant subsequence). Cloze blanks omit the
- *   answer word; after submit the footer Play control often disappears too.
+ *   **visible** sentence play button, or a prefetch whose filename is this
+ *   sentence (furigana and one cloze gap allowed). A play button alone does
+ *   not make a leftover prefetch this card’s file.
  */
 export function exampleOnScreenHasAudio(): boolean {
   const shown = shownSentence();
@@ -116,6 +115,10 @@ function prefetchBackedSentenceAudio(article: HTMLElement | null): boolean {
  * never hand that leftover to play/autoplay.
  */
 export function answerBarPrefetchHref(): string | null {
+  const shown = shownSentenceAudioUrl();
+  if (shown !== undefined) {
+    return shown;
+  }
   const href = prefetchAudioHref();
   if (!href) {
     return null;
@@ -124,18 +127,26 @@ export function answerBarPrefetchHref(): string | null {
     return pronunciationPrefetchMatchesCard(href) ? href : null;
   }
   if (isSentencePrefetch(href)) {
-    const article = findQuizArticle();
-    if (prefetchMatchesOnScreenSentence(article)) {
-      return href;
-    }
-    // Cloze blanks omit the answer word, so the filename stem cannot match the
-    // prompt. A sentence Play control still means this prefetch is current.
-    if (article?.querySelector('.bp-quiz-question') && article.querySelector(SENTENCE_PLAY)) {
-      return href;
-    }
-    return null;
+    return prefetchMatchesOnScreenSentence(findQuizArticle()) ? href : null;
   }
   return null;
+}
+
+/**
+ * The injected example owns the answer-bar clip.
+ * `undefined` means no injected sentence — fall through to Bunpro’s prefetch.
+ * `null` means the injected sentence has no clip (do not use a leftover prefetch).
+ */
+function shownSentenceAudioUrl(): string | null | undefined {
+  const shown = shownSentence();
+  if (!shown) {
+    return undefined;
+  }
+  const sentence = shown.sentences[shown.index];
+  if (!sentence) {
+    return null;
+  }
+  return bunproClipUrl(sentence.male_audio_url, sentence.female_audio_url);
 }
 
 /**
@@ -158,9 +169,9 @@ function clozeHasPrefetchedSentenceAudio(article: HTMLElement): boolean {
 }
 
 /**
- * When the full sentence is on screen (no cloze blank gap), Bunpro’s sentence
- * prefetch filename is the bare sentence while the prompt may mix in furigana.
- * Treat as current when every character of the prefetch stem appears in order.
+ * The prefetch filename is this card’s sentence: the same text, furigana
+ * inlined, or one cloze gap where the answer word was dropped. A different
+ * sentence’s filename does not match.
  */
 function prefetchMatchesOnScreenSentence(article: HTMLElement | null): boolean {
   const stem = prefetchSentenceStem();
@@ -171,7 +182,7 @@ function prefetchMatchesOnScreenSentence(article: HTMLElement | null): boolean {
   if (!onScreen) {
     return false;
   }
-  return isCharacterSubsequence(stem, onScreen);
+  return sentenceStemMatches(stem, onScreen);
 }
 
 function isSentencePrefetch(href: string): boolean {
@@ -222,19 +233,6 @@ function onScreenSentenceText(article: HTMLElement | null): string {
   return findClozeSentence()?.textContent?.trim() ?? '';
 }
 
-/** True when every character of `needle` appears in order in `haystack`. */
-function isCharacterSubsequence(needle: string, haystack: string): boolean {
-  let from = 0;
-  for (const ch of needle) {
-    const at = haystack.indexOf(ch, from);
-    if (at === -1) {
-      return false;
-    }
-    from = at + 1;
-  }
-  return true;
-}
-
 /** Visible speakers only — ignores Bunpro’s hidden footer leftovers. */
 function quizHasVisibleSentencePlay(article: HTMLElement): boolean {
   for (const node of article.querySelectorAll(SENTENCE_PLAY)) {
@@ -268,16 +266,56 @@ function isVisiblyDisplayed(el: HTMLElement): boolean {
   return style.visibility !== 'hidden' && style.display !== 'none';
 }
 
+/**
+ * The file Bunpro's own play button will load. The site remembers the last
+ * voice in `audio-last-gender` and plays that one.
+ */
+export function bunproClipUrl(
+  male: string | null | undefined,
+  female: string | null | undefined,
+): string | null {
+  const voice = readAudioGender();
+  if (voice === 'female') {
+    return female || male || null;
+  }
+  return male || female || null;
+}
+
+function readAudioGender(): 'male' | 'female' {
+  try {
+    return localStorage.getItem('audio-last-gender') === 'Female' ? 'female' : 'male';
+  } catch {
+    return 'male';
+  }
+}
+
+export interface ExampleClip {
+  origin: AudioOrigin;
+  url: string;
+}
+
+/** Info Examples list clips, keyed by study-question id. */
+export function exampleClipsFromSentences(
+  sentences: readonly StudyQuestion[],
+): Map<number, ExampleClip> {
+  const clips = new Map<number, ExampleClip>();
+  for (const sentence of sentences) {
+    const url = bunproClipUrl(sentence.male_audio_url, sentence.female_audio_url);
+    const origin = bunproClipOrigin(url);
+    if (url && origin) {
+      clips.set(sentence.id, { origin, url });
+    }
+  }
+  return clips;
+}
+
 /** Origins for Info Examples list play buttons, keyed by study-question id. */
 export function exampleOriginsFromSentences(
   sentences: readonly StudyQuestion[],
 ): Map<number, AudioOrigin> {
   const origins = new Map<number, AudioOrigin>();
-  for (const sentence of sentences) {
-    const origin = bunproClipOrigin(sentence.female_audio_url ?? sentence.male_audio_url);
-    if (origin) {
-      origins.set(sentence.id, origin);
-    }
+  for (const [id, clip] of exampleClipsFromSentences(sentences)) {
+    origins.set(id, clip.origin);
   }
   return origins;
 }

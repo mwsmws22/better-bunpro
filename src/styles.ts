@@ -162,8 +162,43 @@ button.bb-audio-tts {
  * Play controls as TTS white immediately so they do not flash blue while we
  * resolve classic / Gemini / ElevenLabs. \`bb-audio-real\` still wins for recordings.
  */
-.bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
+html.bb-audio-color .bp-reviewable-root [id^="study-question-"] button[title="Play audio"] {
   color: rgb(var(--c-primary-fg) / 1) !important;
+}
+.bb-audio-menu {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  padding: 0;
+  list-style: none;
+}
+.bb-audio-option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.bb-audio-option-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.bb-audio-radios {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.bb-audio-radios legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+}
+.bb-audio-radios label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 /** Injected answer-bar toggle: swap play↔pause without remounting. */
 #bb-answer-bar-replay .bb-replay-pause {

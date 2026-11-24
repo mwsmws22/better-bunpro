@@ -18,17 +18,24 @@ import {
 } from '../../term-audio/answer-replay';
 import {
   answerBarPrefetchHref,
+  exampleClipsFromSentences,
   exampleOnScreenHasAudio,
-  exampleOriginsFromSentences,
+  type ExampleClip,
 } from '../../term-audio/example-audio';
 import { warnIfGmBridgeMissing } from '../../term-audio/cross-origin';
+import { startDetailsPlay, stopDetailsPlay } from '../../term-audio/details-play';
+import { startAudioDownloads, stopAudioDownloads } from '../../term-audio/download';
 import { grammarSlugFromPath, reviewableFromGrammarSlug } from '../../term-audio/grammar-page';
 import { clearAudioSourceIndicator, syncAudioSourceIndicator } from '../../term-audio/indicator';
-import { loadTermAudio } from '../../term-audio/load';
+import { loadTermAudio, type TermAudioOrigins } from '../../term-audio/load';
 import type { AudioOrigin } from '../../term-audio/origin';
 import { bunproClipOrigin, isRealAudioOrigin } from '../../term-audio/origin';
+import { readAudioMenu, realSpeakersOn } from '../../term-audio/options';
 import { startReplacingAudio, stopReplacingAudio } from '../../term-audio/playback';
 import { forgetReplacements } from '../../term-audio/replacements';
+import { clearActiveReplacement, setActiveReplacement } from '../../term-audio/store';
+import { onStoredChange } from '../../settings/store';
+import { buildAudioMenu } from './menu';
 import { reviewableFromVocabSlug, vocabSlugFromPath } from '../../term-audio/vocab-page';
 import type { Feature } from '../registry';
 
@@ -37,28 +44,38 @@ let stopWatchingRemounts: (() => void) | null = null;
 let shownFor: string | null = null;
 let shownAnswerOrigin: AudioOrigin | null = null;
 let shownDetailsOrigin: AudioOrigin | null = null;
-let shownExampleOrigins: Map<number, AudioOrigin> | null = null;
+let shownExampleClips: Map<number, ExampleClip> | null = null;
 /** Blob URL for answer-bar replay when Bunpro left the play slot empty. */
 let shownAnswerPlayUrl: string | null = null;
+/** Clip the Details pitch control should play for this card. */
+let shownDetailsPlayUrl: string | null = null;
+/** True once the term lookup has settled, so a null answer URL can drop a guessed clip. */
+let answerSettled = false;
+/** Details click plays the term recording because the global rewrite is off. */
+let detailsClickOwned = false;
 /** Details / grammar pages tint as soon as origins are ready — no answer step. */
 let cueAfterReady = false;
+let stopAudioSettings: (() => void) | null = null;
 
 export const humanTermAudioFeature: Feature = {
   id: 'human-term-audio',
-  title: 'Play real speakers instead of TTS audio',
+  title: 'Audio',
   description:
-    'When Bunpro would play synthesised term audio (TTS / text-to-speech), prefer a real ' +
-    'recording instead — looked up like Yomitan (JapanesePod101, then Jisho). Play buttons ' +
-    'are white for TTS and blue for real audio; the tooltip names the source.',
+    'Source tooltips, real-vs-TTS color, real speakers for term audio, and right-click download.',
+  submenu: buildAudioMenu,
   enabledByDefault: true,
 
   start() {
     injectStyles();
     warnIfGmBridgeMissing();
-    startReplacingAudio();
+    readAudioMenu();
+    syncAudioPresentation();
+    startAudioDownloads();
+    startDetailsPlay();
     setTermAutoplaySkipWhen(() => exampleOnScreenHasAudio());
     setTermAutoplayPlayer(playAnswerBarRecording);
     stopWatchingQuiz = watchQuizState(onQuizStateChange);
+    stopAudioSettings = onStoredChange(onAudioSetting);
     stopWatchingRemounts = watchBodyRemounts(() => {
       const state = readQuizState();
       const review = state.reviewable ? reviewKey(state) : null;
@@ -73,13 +90,17 @@ export const humanTermAudioFeature: Feature = {
         // appeared). Flip the answer cue off JPod / onto the sentence engine
         // (classic / Gemini / ElevenLabs) without re-fetching.
         if (shownAnswerOrigin !== null && exampleOnScreenHasAudio()) {
-          const prefetch = answerBarPrefetchHref();
-          if (prefetch) {
-            shownAnswerPlayUrl = prefetch;
-            shownAnswerOrigin = bunproClipOrigin(prefetch) ?? 'bunpro-tts';
+          const clip = answerBarPrefetchHref();
+          if (clip) {
+            shownAnswerPlayUrl = clip;
+            shownAnswerOrigin = bunproClipOrigin(clip) ?? 'bunpro-tts';
             cancelScheduledTermAutoplay();
           } else if (isRealAudioOrigin(shownAnswerOrigin)) {
+            // Sentence is on screen but its file is not identified. Drop the
+            // term recording instead of leaving that file on the answer bar.
             shownAnswerOrigin = 'bunpro-tts';
+            shownAnswerPlayUrl = null;
+            answerSettled = true;
             cancelScheduledTermAutoplay();
           }
         }
@@ -93,12 +114,15 @@ export const humanTermAudioFeature: Feature = {
       if (
         shownAnswerOrigin !== null ||
         shownDetailsOrigin !== null ||
-        shownExampleOrigins !== null
+        shownExampleClips !== null
       ) {
         paintCues();
       }
       void refreshItemPage();
     });
+    // Quiz metadata never appears on a vocab/grammar page, and a quiet page
+    // may not mutate after the script starts. Load that page explicitly.
+    void refreshItemPage();
   },
 
   stop() {
@@ -106,7 +130,13 @@ export const humanTermAudioFeature: Feature = {
     stopWatchingRemounts = null;
     stopWatchingQuiz?.();
     stopWatchingQuiz = null;
+    stopAudioSettings?.();
+    stopAudioSettings = null;
+    stopAudioDownloads();
+    stopDetailsPlay();
+    document.documentElement.classList.remove('bb-audio-color');
     stopReplacingAudio();
+    clearActiveReplacement();
     forgetReplacements();
     clearAudioSourceIndicator();
     clearAnswerBarReplay();
@@ -116,8 +146,11 @@ export const humanTermAudioFeature: Feature = {
     shownFor = null;
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
-    shownExampleOrigins = null;
+    shownExampleClips = null;
     shownAnswerPlayUrl = null;
+    shownDetailsPlayUrl = null;
+    answerSettled = false;
+    detailsClickOwned = false;
     cueAfterReady = false;
   },
 };
@@ -142,8 +175,12 @@ async function refreshReview(state: QuizState): Promise<void> {
     shownFor = review;
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
-    shownExampleOrigins = null;
+    shownExampleClips = null;
     shownAnswerPlayUrl = null;
+    shownDetailsPlayUrl = null;
+    answerSettled = false;
+    detailsClickOwned = false;
+    clearActiveReplacement();
     clearAudioSourceIndicator();
     clearAnswerBarReplay();
     setActiveTermAutoplayReview(review);
@@ -154,37 +191,25 @@ async function refreshReview(state: QuizState): Promise<void> {
   if (term.type !== 'vocab') {
     // Grammar (and other non-vocab): own Bunpro’s clip as play↔pause when present.
     adoptBunproAnswerClip(review);
-    if (shownExampleOrigins !== null || shownAnswerPlayUrl !== null) {
+    if (shownExampleClips !== null || shownAnswerPlayUrl !== null) {
       paintCues();
     }
     return;
   }
 
-  await loadTermAudio(term, (origins) => {
-    if (reviewKey(readQuizState()) !== review) {
-      return;
-    }
-    shownFor = review;
-    // Cloze sentence detection can flicker after submit (Play control unmounts).
-    // Once this review’s answer bar is on Bunpro TTS, do not flip it to JPod.
-    const keepBunproAnswer =
-      shownAnswerOrigin !== null &&
-      !isRealAudioOrigin(shownAnswerOrigin) &&
-      isRealAudioOrigin(origins.answer) &&
-      exampleOnScreenHasAudio();
-    shownAnswerOrigin = keepBunproAnswer ? shownAnswerOrigin : origins.answer;
-    shownDetailsOrigin = origins.details;
-    shownAnswerPlayUrl = origins.answerPlayUrl;
-    if (keepBunproAnswer) {
-      const prefetch = answerBarPrefetchHref();
-      if (prefetch) {
-        shownAnswerPlayUrl = prefetch;
-        shownAnswerOrigin = bunproClipOrigin(prefetch) ?? shownAnswerOrigin;
+  await loadTermAudio(
+    term,
+    (origins) => {
+      if (reviewKey(readQuizState()) !== review) {
+        return;
       }
-    }
-    paintCues();
-    maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin!);
-  });
+      shownFor = review;
+      applyTermOrigins(origins, { keepSentenceOverTerm: true });
+      paintCues();
+      maybeAutoplayTermRecording(review, shownAnswerPlayUrl, shownAnswerOrigin!);
+    },
+    { useRealSpeakers: realSpeakersOn('reviews') },
+  );
 
   if (reviewKey(readQuizState()) !== review) {
     return;
@@ -193,13 +218,13 @@ async function refreshReview(state: QuizState): Promise<void> {
     shownFor === review &&
     shownAnswerOrigin === null &&
     shownDetailsOrigin === null &&
-    shownExampleOrigins === null
+    shownExampleClips === null
   ) {
     clearShown();
   } else if (
     shownAnswerOrigin !== null ||
     shownDetailsOrigin !== null ||
-    shownExampleOrigins !== null
+    shownExampleClips !== null
   ) {
     paintCues();
   }
@@ -231,7 +256,11 @@ async function refreshVocabPage(slug: string): Promise<void> {
     shownFor = key;
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
-    shownExampleOrigins = null;
+    shownExampleClips = null;
+    shownDetailsPlayUrl = null;
+    answerSettled = false;
+    detailsClickOwned = false;
+    clearActiveReplacement();
     clearAudioSourceIndicator();
   } else if (shownDetailsOrigin === null) {
     return;
@@ -253,19 +282,18 @@ async function refreshVocabPage(slug: string): Promise<void> {
         return;
       }
       shownFor = key;
-      shownAnswerOrigin = origins.answer;
-      shownDetailsOrigin = origins.details;
+      applyTermOrigins(origins, { keepSentenceOverTerm: false });
       paintCues();
     },
-    { ignoreExampleAudio: true },
+    { ignoreExampleAudio: true, useRealSpeakers: realSpeakersOn('vocab') },
   );
 
   if (vocabSlugFromPath() !== slug) {
     return;
   }
-  if (shownFor === key && shownDetailsOrigin === null && shownExampleOrigins === null) {
+  if (shownFor === key && shownDetailsOrigin === null && shownExampleClips === null) {
     clearShown();
-  } else if (shownDetailsOrigin !== null || shownExampleOrigins !== null) {
+  } else if (shownDetailsOrigin !== null || shownExampleClips !== null) {
     paintCues();
   }
 }
@@ -273,7 +301,7 @@ async function refreshVocabPage(slug: string): Promise<void> {
 async function refreshGrammarPage(slug: string): Promise<void> {
   const key = `page:grammar:${slug}`;
   cueAfterReady = true;
-  if (shownFor === key && shownExampleOrigins !== null) {
+  if (shownFor === key && shownExampleClips !== null) {
     paintCues();
     return;
   }
@@ -281,9 +309,14 @@ async function refreshGrammarPage(slug: string): Promise<void> {
     shownFor = key;
     shownAnswerOrigin = null;
     shownDetailsOrigin = null;
-    shownExampleOrigins = null;
+    shownExampleClips = null;
+    shownAnswerPlayUrl = null;
+    shownDetailsPlayUrl = null;
+    answerSettled = false;
+    detailsClickOwned = false;
+    clearActiveReplacement();
     clearAudioSourceIndicator();
-  } else if (shownExampleOrigins === null) {
+  } else if (shownExampleClips === null) {
     return;
   }
   paintCues();
@@ -298,7 +331,7 @@ async function refreshGrammarPage(slug: string): Promise<void> {
   if (grammarSlugFromPath() !== slug) {
     return;
   }
-  if (shownFor === key && shownExampleOrigins === null) {
+  if (shownFor === key && shownExampleClips === null) {
     clearShown();
   }
 }
@@ -312,28 +345,98 @@ async function loadExampleOrigins(
     if (!stillCurrent()) {
       return;
     }
-    shownExampleOrigins = exampleOriginsFromSentences(sentences);
+    shownExampleClips = exampleClipsFromSentences(sentences);
     paintCues();
   } catch {
     // Term-audio lookup already warns; Examples cues are best-effort.
   }
 }
 
+function applyTermOrigins(
+  origins: TermAudioOrigins,
+  options: { keepSentenceOverTerm: boolean },
+): void {
+  // The lookup paints twice. The first pass has no file yet — keep a clip we
+  // already settled, or a later refresh would drop it and play nothing.
+  if (!origins.lookupDone) {
+    if (!answerSettled) {
+      shownAnswerOrigin = origins.answer;
+      shownDetailsOrigin = origins.details;
+    }
+    return;
+  }
+
+  const keepBunproAnswer =
+    options.keepSentenceOverTerm &&
+    shownAnswerOrigin !== null &&
+    !isRealAudioOrigin(shownAnswerOrigin) &&
+    isRealAudioOrigin(origins.answer) &&
+    exampleOnScreenHasAudio();
+
+  if (keepBunproAnswer) {
+    const clip = answerBarPrefetchHref();
+    shownAnswerPlayUrl = clip;
+    if (clip) {
+      shownAnswerOrigin = bunproClipOrigin(clip) ?? shownAnswerOrigin;
+    }
+  } else {
+    shownAnswerOrigin = origins.answer;
+    shownAnswerPlayUrl = origins.answerPlayUrl;
+  }
+  shownDetailsOrigin = origins.details;
+  shownDetailsPlayUrl = origins.detailsPlayUrl;
+  if (!origins.lookupDone) {
+    return;
+  }
+  answerSettled = true;
+  detailsClickOwned = Boolean(origins.recordingUrl) && origins.rewriteFrom.length === 0;
+  if (origins.recordingUrl && origins.rewriteFrom.length > 0) {
+    setActiveReplacement(origins.rewriteFrom, origins.recordingUrl, origins.details);
+    return;
+  }
+  clearActiveReplacement();
+}
+
 function paintCues(): void {
+  const menu = readAudioMenu();
   const afterSubmit = cueAfterReady || readQuizState().isPostAttempt;
   // Own the answer bar after submit whenever we may have a clip — including when
   // Bunpro autoplay already mounted the toggle via takeOver before load finished.
-  // A null playUrl must not clear (that wiped the play→pause animation).
+  // A null playUrl must not clear while the lookup is still running.
   syncAnswerBarReplay({
     enabled: afterSubmit,
     playUrl: shownAnswerPlayUrl,
+    release: answerSettled && shownAnswerPlayUrl === null,
   });
   syncAudioSourceIndicator({
     afterSubmit,
     answerOrigin: shownAnswerOrigin,
     detailsOrigin: shownDetailsOrigin,
-    exampleOrigins: shownExampleOrigins,
+    exampleOrigins: exampleOrigins(shownExampleClips),
+    exampleUrls: exampleUrls(shownExampleClips),
+    answerUrl: shownAnswerPlayUrl,
+    detailsUrl: shownDetailsPlayUrl,
+    sentenceUrl: exampleOnScreenHasAudio() ? shownAnswerPlayUrl : null,
+    annotate: menu.annotate,
+    color: menu.color,
+    ownDetails: detailsClickOwned,
   });
+}
+
+function exampleOrigins(
+  clips: Map<number, ExampleClip> | null,
+): Map<number, AudioOrigin> | null {
+  if (!clips) {
+    return null;
+  }
+  return new Map([...clips].map(([id, clip]) => [id, clip.origin]));
+}
+
+function exampleUrls(clips: Map<number, ExampleClip> | null): Map<number, string> | null {
+  if (!clips) {
+    return null;
+  }
+  return new Map([...clips].map(([id, clip]) => [id, clip.url]));
 }
 
 /** Grammar reviews: drive the answer bar from Bunpro’s prefetch clip. */
@@ -370,10 +473,38 @@ function clearShown(): void {
   shownFor = null;
   shownAnswerOrigin = null;
   shownDetailsOrigin = null;
-  shownExampleOrigins = null;
+  shownExampleClips = null;
   shownAnswerPlayUrl = null;
+  shownDetailsPlayUrl = null;
+  answerSettled = false;
+  detailsClickOwned = false;
   cueAfterReady = false;
   setActiveTermAutoplayReview(null);
+  clearActiveReplacement();
   clearAnswerBarReplay();
   clearAudioSourceIndicator();
+}
+
+function onAudioSetting(key: string): void {
+  if (!key.startsWith('audio.') || key === 'audio.migrated') {
+    return;
+  }
+  syncAudioPresentation();
+  shownFor = null;
+  const state = readQuizState();
+  if (state.reviewable && reviewKey(state) !== null) {
+    void refreshReview(state);
+    return;
+  }
+  void refreshItemPage();
+}
+
+function syncAudioPresentation(): void {
+  document.documentElement.classList.toggle('bb-audio-color', readAudioMenu().color);
+  if (readAudioMenu().realSpeakers) {
+    startReplacingAudio();
+    return;
+  }
+  stopReplacingAudio();
+  clearActiveReplacement();
 }

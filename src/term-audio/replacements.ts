@@ -1,6 +1,6 @@
 import type { AudioOrigin } from './origin';
 import { findRecording } from './recording';
-import { forget, forgetAll, remember, type SynthesisedAudio } from './store';
+import { forget, forgetAll, type SynthesisedAudio } from './store';
 
 interface Lookup {
   ttsUrls: readonly string[];
@@ -16,7 +16,8 @@ const REMEMBERED = 50;
 
 /**
  * Resolves once we know whether this word has a recording; one lookup per word.
- * Returns the dictionary origin and blob URL when a recording was filed.
+ * Does not publish the clip. The caller binds it for the card on screen, so a
+ * lookup that finishes late cannot point the next card at this file.
  */
 export async function findReplacement(
   audio: SynthesisedAudio,
@@ -36,7 +37,6 @@ export async function findReplacement(
 
   const [recording, origin] = await Promise.all([lookup.recording, lookup.origin]);
   if (recording !== null && origin !== null && lookups.get(word) === lookup) {
-    remember(lookup.ttsUrls, recording, origin);
     return { origin, url: recording };
   }
   return null;

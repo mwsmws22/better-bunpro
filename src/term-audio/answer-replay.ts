@@ -39,6 +39,12 @@ let mediaListeners: { media: HTMLMediaElement; stop: () => void } | null = null;
 export interface AnswerBarReplayOptions {
   enabled: boolean;
   playUrl: string | null;
+  /**
+   * Drop the toggle when `playUrl` is null. Loading paints omit this so a
+   * takeover that already started is not torn down before the lookup settles.
+   * A settled null means we will not guess a file.
+   */
+  release?: boolean;
 }
 
 export function syncAnswerBarReplay(options: AnswerBarReplayOptions): void {
@@ -47,6 +53,9 @@ export function syncAnswerBarReplay(options: AnswerBarReplayOptions): void {
     return;
   }
   if (!options.playUrl) {
+    if (options.release) {
+      clearAnswerBarReplay();
+    }
     return;
   }
   // Keep hide-Bunpro-play rules fresh (injectStyles used to no-op after first run).

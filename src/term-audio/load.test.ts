@@ -16,6 +16,20 @@ import { answerBarPrefetchHref, exampleOnScreenHasAudio } from './example-audio'
 import { findReplacement } from './replacements';
 import { loadTermAudio, type TermAudioOrigins } from './load';
 
+const TERM_TTS = 'https://cdn.example/委ねる-male.mp3';
+
+function pending(): TermAudioOrigins {
+  return {
+    answer: 'bunpro-tts',
+    details: 'bunpro-tts',
+    answerPlayUrl: null,
+    detailsPlayUrl: null,
+    rewriteFrom: [],
+    recordingUrl: null,
+    lookupDone: false,
+  };
+}
+
 const TERM = { id: 1, type: 'vocab' as const };
 
 const TTS_ITEM: Reviewable = {
@@ -51,11 +65,15 @@ describe('loadTermAudio', () => {
 
     expect(findReplacement).toHaveBeenCalled();
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
+      pending(),
       {
         answer: 'bunpro-tts',
         details: 'jpod101',
-        answerPlayUrl: 'https://cdn.example/委ねる-male.mp3',
+        answerPlayUrl: null,
+        detailsPlayUrl: 'blob:jpod',
+        rewriteFrom: [],
+        recordingUrl: 'blob:jpod',
+        lookupDone: true,
       },
     ]);
   });
@@ -67,8 +85,16 @@ describe('loadTermAudio', () => {
     const origins = await collectOrigins((onOrigins) => loadTermAudio(TERM, onOrigins));
 
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
-      { answer: 'jpod101', details: 'jpod101', answerPlayUrl: 'blob:jpod' },
+      pending(),
+      {
+        answer: 'jpod101',
+        details: 'jpod101',
+        answerPlayUrl: 'blob:jpod',
+        detailsPlayUrl: 'blob:jpod',
+        rewriteFrom: [TERM_TTS],
+        recordingUrl: 'blob:jpod',
+        lookupDone: true,
+      },
     ]);
   });
 
@@ -82,9 +108,35 @@ describe('loadTermAudio', () => {
     );
 
     expect(origins).toEqual([
-      { answer: 'bunpro-tts', details: 'bunpro-tts', answerPlayUrl: null },
-      { answer: 'jpod101', details: 'jpod101', answerPlayUrl: 'blob:jpod' },
+      pending(),
+      {
+        answer: 'jpod101',
+        details: 'jpod101',
+        answerPlayUrl: 'blob:jpod',
+        detailsPlayUrl: 'blob:jpod',
+        rewriteFrom: [TERM_TTS],
+        recordingUrl: 'blob:jpod',
+        lookupDone: true,
+      },
     ]);
+  });
+
+  it('does not look up a speaker when real speakers are off', async () => {
+    vi.spyOn(api, 'fetchReviewable').mockResolvedValue(TTS_ITEM);
+
+    const origins = await collectOrigins((onOrigins) =>
+      loadTermAudio(TERM, onOrigins, { useRealSpeakers: false }),
+    );
+
+    expect(findReplacement).not.toHaveBeenCalled();
+    expect(origins.at(-1)).toMatchObject({
+      answer: 'bunpro-tts',
+      details: 'bunpro-tts',
+      answerPlayUrl: TERM_TTS,
+      recordingUrl: null,
+      rewriteFrom: [],
+      lookupDone: true,
+    });
   });
 
   it('labels the answer bar as ElevenLabs when the sentence prefetch is that engine', async () => {
@@ -101,6 +153,10 @@ describe('loadTermAudio', () => {
       answer: 'bunpro-tts-elevenlabs',
       details: 'jpod101',
       answerPlayUrl: eleven,
+      detailsPlayUrl: 'blob:jpod',
+      rewriteFrom: [],
+      recordingUrl: 'blob:jpod',
+      lookupDone: true,
     });
   });
 });

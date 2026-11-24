@@ -173,6 +173,19 @@ describe('syncAnswerBarReplay', () => {
 
     expect(document.getElementById('bb-answer-bar-replay')).toBe(first);
   });
+
+  it('removes the toggle when a settled clip is dropped', () => {
+    document.body.innerHTML = `
+      <div class="InputManual">
+        <div class="p-6"><div class="h-18 w-18"></div></div>
+      </div>
+    `;
+
+    syncAnswerBarReplay({ enabled: true, playUrl: 'blob:jpod' });
+    syncAnswerBarReplay({ enabled: true, playUrl: null, release: true });
+
+    expect(document.getElementById('bb-answer-bar-replay')).toBeNull();
+  });
 });
 
 describe('playAnswerBarRecording', () => {
@@ -205,14 +218,15 @@ describe('playAnswerBarRecording', () => {
 describe('takeOverBunproAnswerPlay', () => {
   it('takes over Bunpro correct-answer autoplay via prefetch before paint syncs', async () => {
     const { takeOverBunproAnswerPlay } = await import('./answer-replay');
+    const sentence = 'この樽にはお酒が入っています。';
     document.body.innerHTML = `
       <div id="js-quiz">
         <article>
-          <div class="bp-quiz-question">This is a grammar sentence.</div>
+          <div class="bp-quiz-question">${sentence}</div>
         </article>
       </div>
       <link id="prefetch-audio" rel="prefetch" as="audio"
-        href="https://cdn.example/audio/grammar/sentence.mp3" />
+        href="https://cdn.example/audio/grammar/${encodeURIComponent(sentence)}.mp3" />
       <div class="InputManual">
         <div class="p-6"><div class="h-18 w-18"></div></div>
         <form class="InputManual__form"></form>
@@ -222,13 +236,8 @@ describe('takeOverBunproAnswerPlay', () => {
 
     // Bunpro autoplays in the same tick as post-attempt — before human-term-audio
     // has called syncAnswerBarReplay / set playUrl.
-    expect(
-      takeOverBunproAnswerPlay(
-        media,
-        'https://cdn.example/audio/grammar/sentence.mp3',
-        null,
-      ),
-    ).toBe(true);
+    const href = `https://cdn.example/audio/grammar/${encodeURIComponent(sentence)}.mp3`;
+    expect(takeOverBunproAnswerPlay(media, href, null)).toBe(true);
 
     const button = document.getElementById('bb-answer-bar-replay');
     expect(button?.classList.contains('bb-replay-playing')).toBe(true);

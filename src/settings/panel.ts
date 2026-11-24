@@ -10,6 +10,7 @@ import {
 import { injectStyles } from '../styles';
 import { claimKeystrokes } from '../ui/keystrokes';
 import { descriptionNodes } from './description';
+import { buildSwitch as buildSwitchControl } from './switch';
 
 const PANEL_ID = 'bb-settings-panel';
 const CARD_CLASS =
@@ -95,6 +96,9 @@ function buildFeatureList(): HTMLElement {
 }
 
 function buildFeatureRow(feature: Feature): HTMLElement {
+  if (feature.submenu) {
+    return buildSubmenuFeature(feature);
+  }
   const description = element(
     'p',
     { class: 'bb-feature-desc text-small text-tertiary-fg' },
@@ -138,20 +142,22 @@ function buildLink(text: string, href: string): HTMLElement {
   );
 }
 
+function buildSubmenuFeature(feature: Feature): HTMLElement {
+  const description = element(
+    'p',
+    { class: 'bb-feature-desc text-small text-tertiary-fg' },
+    descriptionNodes(feature.description),
+  );
+  const about = element('details', { class: 'bb-feature-about' }, [
+    buildSummary(feature.title),
+    description,
+    feature.submenu!(),
+  ]);
+  return element('li', {}, [about]);
+}
+
 function buildSwitch(feature: Feature): HTMLElement {
-  const button = element('button', { role: 'switch', 'aria-label': feature.title });
-
-  const paint = () => {
-    const enabled = isFeatureEnabled(feature);
-    button.setAttribute('aria-checked', String(enabled));
-    button.className = `bb-switch ${enabled ? 'bg-primary-accent' : 'bg-tertiary-bg'}`;
-  };
-
-  button.addEventListener('click', () => {
-    setFeatureEnabled(feature, !isFeatureEnabled(feature));
-    paint();
+  return buildSwitchControl(feature.title, isFeatureEnabled(feature), (enabled) => {
+    setFeatureEnabled(feature, enabled);
   });
-  paint();
-
-  return button;
 }

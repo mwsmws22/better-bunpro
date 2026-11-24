@@ -14,6 +14,11 @@ export interface LoadTermAudioOptions {
    * Vocabulary detail pages have no example-sentence clip to protect.
    */
   ignoreExampleAudio?: boolean;
+  /**
+   * Look up a real speaker for this term. When false, every control stays on
+   * the Bunpro file it already has.
+   */
+  useRealSpeakers?: boolean;
 }
 
 /** Origins for the quiz answer-bar vs Details pitch-accent play controls. */
@@ -21,10 +26,18 @@ export interface TermAudioOrigins {
   answer: AudioOrigin;
   details: AudioOrigin;
   /**
- * Blob / CDN URL for the answer-bar toggle. Always set when we can play
- * something: JPod recording, or Bunpro’s own clip (sentence/term TTS via prefetch).
- */
+   * Clip for the answer-bar toggle. A sentence we cannot identify is null —
+   * never the term file standing in for that sentence.
+   */
   answerPlayUrl: string | null;
+  /** Clip the Details pitch control should play. */
+  detailsPlayUrl: string | null;
+  /** Term TTS urls to rewrite, only when a recording is bound for this card. */
+  rewriteFrom: readonly string[];
+  /** Dictionary blob when one will play. */
+  recordingUrl: string | null;
+  /** False on the placeholder paint before the lookup finishes. */
+  lookupDone: boolean;
 }
 
 /**
@@ -34,12 +47,13 @@ export interface TermAudioOrigins {
  *
  * 1. **Details** — always term audio. Always dictionary-lookup. Blue when real.
  * 2. **Answer bar** — if `exampleOnScreenHasAudio()` (sentence clip on this
- *    review), stay on Bunpro (white) even when JPod exists for the term.
- *    Otherwise the answer bar is term audio → same lookup as Details (blue when
- *    real).
- * 3. Detection rules live in `example-audio.ts` — hidden footer Play buttons are
- *    not examples; cloze + leftover `/tts/` prefetch is not either (Bunpro may
- *    show “Audio not available” for sentence play while term JPod should run).
+ *    review), stay on that sentence’s own file. Never substitute the term
+ *    recording, and never fall back to the term TTS file when the sentence
+ *    file is not identified.
+ *    Otherwise the answer bar is term audio → same lookup as Details when
+ *    real speakers are on for this surface.
+ * 3. Detection rules live in `example-audio.ts`. A prefetch link is this
+ *    card’s sentence only when the filename lines up with the prompt.
  */
 export async function loadTermAudio(
   term: ReviewableRef,
@@ -53,30 +67,75 @@ export async function loadTermAudio(
     }
 
     const bunpro = bunproOrigin(item.has_tts_audio);
-    onOrigins({ answer: bunpro, details: bunpro, answerPlayUrl: null });
+    onOrigins(unresolved(bunpro));
 
     const audio = synthesisedTermAudio(item);
+    const termUrl = audio?.ttsUrls[0] ?? firstClip(item);
     if (!audio) {
+      onOrigins(bunproOnly(bunpro, termUrl, options.ignoreExampleAudio === true));
       return;
     }
 
-    const hit = await findReplacement(audio);
-    // Re-check after the lookup — prefetch / sentence UI often lands while we wait.
+    const speakers = options.useRealSpeakers !== false;
+    const hit = speakers ? await findReplacement(audio) : null;
     const leaveAnswerOnBunpro =
       !options.ignoreExampleAudio && exampleOnScreenHasAudio();
+    const sentenceUrl = leaveAnswerOnBunpro ? answerBarPrefetchHref() : null;
+    const answerBunpro = originForBunproPlayUrl(
+      leaveAnswerOnBunpro ? sentenceUrl : termUrl,
+      bunpro,
+    );
+    const termOrigin = originForBunproPlayUrl(termUrl, bunpro);
 
-    const bunproPlayUrl = answerBarPrefetchHref() ?? audio.ttsUrls[0] ?? null;
-    const answerBunpro = originForBunproPlayUrl(bunproPlayUrl, bunpro);
     onOrigins({
       answer: leaveAnswerOnBunpro ? answerBunpro : (hit?.origin ?? answerBunpro),
-      details: hit?.origin ?? bunpro,
-      // Always give the answer-bar toggle a URL — JPod when we own term audio,
-      // otherwise Bunpro’s prefetch / synthesised clip (no open-player chrome).
-      answerPlayUrl: leaveAnswerOnBunpro ? bunproPlayUrl : (hit?.url ?? bunproPlayUrl),
+      details: hit?.origin ?? termOrigin,
+      answerPlayUrl: leaveAnswerOnBunpro ? sentenceUrl : (hit?.url ?? termUrl),
+      detailsPlayUrl: hit?.url ?? termUrl,
+      // Sentence cards must not rewrite: Bunpro’s answer-bar file is not the
+      // term, and a global swap would play the term recording over it.
+      // Details on those cards is played from the button instead.
+      rewriteFrom: hit && !leaveAnswerOnBunpro ? audio.ttsUrls : [],
+      recordingUrl: hit?.url ?? null,
+      lookupDone: true,
     });
   } catch (error) {
     warnOnce('term-audio', 'Could not replace synthesised term audio:', error);
   }
+}
+
+function unresolved(origin: AudioOrigin): TermAudioOrigins {
+  return {
+    answer: origin,
+    details: origin,
+    answerPlayUrl: null,
+    detailsPlayUrl: null,
+    rewriteFrom: [],
+    recordingUrl: null,
+    lookupDone: false,
+  };
+}
+
+/** Bunpro already has a human recording — play it, do not look up another. */
+function bunproOnly(
+  origin: AudioOrigin,
+  termUrl: string | null,
+  ignoreExampleAudio: boolean,
+): TermAudioOrigins {
+  const sentenceUrl = ignoreExampleAudio ? null : answerBarPrefetchHref();
+  return {
+    answer: origin,
+    details: origin,
+    answerPlayUrl: sentenceUrl ?? termUrl,
+    detailsPlayUrl: termUrl,
+    rewriteFrom: [],
+    recordingUrl: null,
+    lookupDone: true,
+  };
+}
+
+function firstClip(item: Reviewable): string | null {
+  return item.male_audio_url ?? item.female_audio_url;
 }
 
 /** Prefer classic / Gemini / ElevenLabs from the clip URL; else the API TTS flag. */

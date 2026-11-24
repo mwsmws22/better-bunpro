@@ -302,6 +302,28 @@ export function findExamplesListPlayControls(): HTMLElement[] {
   return controls;
 }
 
+const SENTENCE_PLAY_BUTTON =
+  'button[title="Play audio"], button[data-bb-audio-title="Play audio"]';
+
+/**
+ * Sentence speakers in the quiz prompt. Examples-list speakers live under
+ * `.bp-reviewable-root` and are not these.
+ */
+export function findOnScreenSentencePlayControls(): HTMLElement[] {
+  const article = findQuizArticle();
+  if (!article) {
+    return [];
+  }
+  const controls: HTMLElement[] = [];
+  for (const button of article.querySelectorAll(SENTENCE_PLAY_BUTTON)) {
+    if (!(button instanceof HTMLElement) || button.closest('.bp-reviewable-root')) {
+      continue;
+    }
+    controls.push(button);
+  }
+  return controls;
+}
+
 /** Study-question id from an Examples list play button's card, or null. */
 export function studyQuestionIdOfPlayControl(control: HTMLElement): number | null {
   const card = control.closest(`[id^="${NATIVE_CARD_ID_PREFIX}"]`);

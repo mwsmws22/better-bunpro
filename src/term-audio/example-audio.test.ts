@@ -4,6 +4,7 @@ import { showSentence, clearSentence } from '../quiz-sentence/slot';
 import type { StudyQuestion } from '../bunpro/api';
 import {
   answerBarPrefetchHref,
+  bunproClipUrl,
   exampleOnScreenHasAudio,
   exampleOriginsFromSentences,
 } from './example-audio';
@@ -358,6 +359,34 @@ describe('answerBarPrefetchHref', () => {
     expect(answerBarPrefetchHref()).toContain('elevenlabs');
   });
 
+  it('does not treat a play button as proof a leftover prefetch is this card', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">爪楊枝で必死に歯を抉っている時に…</div>
+              <button title="Play audio"></button>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('レッスンを怠けていてばかりだったので')}-male.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toBeNull();
+  });
+
+  it('plays the injected sentence file instead of a leftover prefetch', () => {
+    document.body.innerHTML = `
+      <div id="js-quiz"><article></article></div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/previous-sentence-male.mp3" />
+    `;
+    showSentence({ reviewKey: 'vocab:1', sentences: [WITH_AUDIO], index: 0 });
+    expect(answerBarPrefetchHref()).toBe('https://cdn.example/sentence.mp3');
+  });
+
   it('returns null for leftover vocab TTS that does not match the cloze sentence', () => {
     document.body.innerHTML = `
       <div id="js-quiz">
@@ -373,6 +402,24 @@ describe('answerBarPrefetchHref', () => {
         href="https://cdn.example/audio/vocab/tts/${encodeURIComponent('レッスンを怠けていてばかりだったので')}-male.mp3" />
     `;
     expect(answerBarPrefetchHref()).toBeNull();
+  });
+});
+
+describe('bunproClipUrl', () => {
+  afterEach(() => {
+    localStorage.removeItem('audio-last-gender');
+  });
+
+  it('uses the voice Bunpro last played', () => {
+    localStorage.setItem('audio-last-gender', 'Male');
+    expect(bunproClipUrl('https://cdn.example/male.mp3', 'https://cdn.example/female.mp3')).toBe(
+      'https://cdn.example/male.mp3',
+    );
+
+    localStorage.setItem('audio-last-gender', 'Female');
+    expect(bunproClipUrl('https://cdn.example/male.mp3', 'https://cdn.example/female.mp3')).toBe(
+      'https://cdn.example/female.mp3',
+    );
   });
 });
 
