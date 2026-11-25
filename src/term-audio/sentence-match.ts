@@ -1,4 +1,4 @@
-import { HIRAGANA, KANJI, KATAKANA } from '../japanese/characters';
+import { KANJI } from '../japanese/characters';
 
 /**
  * Does this audio filename belong to the sentence on screen?
@@ -7,10 +7,10 @@ import { HIRAGANA, KANJI, KATAKANA } from '../japanese/characters';
  * by “every character appears somewhere later” accepts those leftovers, and the
  * answer bar then plays the wrong file. Furigana is inserted kana, and a cloze
  * blank drops the answer word, so the stem will not be a copy of the prompt —
- * but it still has to be the same sentence.
+ * but it still has to be the same sentence. Ruby readings and punctuation the
+ * filename drops (`(しけん)`, `：「」！？`) are not part of that comparison.
  */
 
-const KANA = new RegExp(`^[${HIRAGANA}${KATAKANA}]$`);
 const KANJI_CHAR = new RegExp(`^[${KANJI}]$`);
 
 /** Share of the filename stem that must line up with the prompt. */
@@ -68,9 +68,11 @@ function coverageNeeded(stem: string, screen: string): number {
 }
 
 /**
- * Line the stem up with the prompt. Kana that is not the next stem character is
- * furigana and can be skipped. One gap in the stem is the cloze blank (the
- * answer word is missing from the prompt). Kanji is never skipped.
+ * Line the stem up with the prompt. A screen character that is not the next
+ * stem character can be skipped when it is not kanji: furigana, ruby
+ * parentheses, and punctuation the filename dropped. One gap in the stem is
+ * the cloze blank (the answer word is missing from the prompt). Kanji is never
+ * skipped.
  */
 function aligns(stem: string, screen: string, minCoverage: number): boolean {
   if (covers(align(stem, screen, 0), stem.length, minCoverage)) {
@@ -110,7 +112,7 @@ function align(part: string, screen: string, from: number): Alignment | null {
   let skipped = 0;
   let matched = 0;
   for (const ch of part) {
-    while (index < screen.length && screen[index] !== ch && KANA.test(screen[index] ?? '')) {
+    while (index < screen.length && screen[index] !== ch && !KANJI_CHAR.test(screen[index] ?? '')) {
       index += 1;
       skipped += 1;
       if (skipped > matched * 3 + 8) {

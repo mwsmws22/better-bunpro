@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Better Bunpro
 // @namespace    mwsmws22
-// @version      0.12.0
+// @version      0.12.1
 // @author       mwsmws22
 // @description  Fixes and features I wish Bunpro had natively — real speaker audio, A5 example sentences, add synonyms, and more.
 // @license      MIT
@@ -2075,7 +2075,6 @@ input.bb-correct-guess {
 	function prefetchAudioHref() {
 		return document.querySelector("link#prefetch-audio")?.href ?? document.querySelector("link[rel=\"prefetch\"][as=\"audio\"]")?.href ?? null;
 	}
-	var KANA = new RegExp(`^[${HIRAGANA}${KATAKANA}]$`);
 	var KANJI_CHAR = new RegExp(`^[${KANJI}]$`);
 	var MIN_COVERAGE = .55;
 	var MIN_KANA_COVERAGE = .8;
@@ -2127,7 +2126,7 @@ input.bb-correct-guess {
 		let skipped = 0;
 		let matched = 0;
 		for (const ch of part) {
-			while (index < screen.length && screen[index] !== ch && KANA.test(screen[index] ?? "")) {
+			while (index < screen.length && screen[index] !== ch && !KANJI_CHAR.test(screen[index] ?? "")) {
 				index += 1;
 				skipped += 1;
 				if (skipped > matched * 3 + 8) return null;
@@ -2711,13 +2710,25 @@ input.bb-correct-guess {
 	}
 	function onContextMenu(event) {
 		if (!readAudioMenu().download) return;
-		const control = audioControlFrom(event.target);
+		const control = playControlFor(event);
 		if (!control) return;
 		const url = resolvedAudioUrl(control);
 		if (!url) return;
 		event.preventDefault();
 		event.stopPropagation();
 		downloadResolvedAudio(control, url);
+	}
+	function playControlFor(event) {
+		return audioControlFrom(event.target) ?? playControlAt(event.clientX, event.clientY);
+	}
+	function playControlAt(x, y) {
+		if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+		if (typeof document.elementsFromPoint !== "function") return null;
+		for (const node of document.elementsFromPoint(x, y)) {
+			const control = audioControlFrom(node);
+			if (control) return control;
+		}
+		return null;
 	}
 	function audioControlFrom(target) {
 		if (!(target instanceof Element)) return null;
@@ -4249,7 +4260,7 @@ input.bb-correct-guess {
   <circle cx="9" cy="7" r="3.25"/>
   <circle cx="15" cy="17" r="3.25"/>
 </g>`;
-	var version = "0.12.0";
+	var version = "0.12.1";
 	var PANEL_ID = "bb-settings-panel";
 	var CARD_CLASS = "bb-panel-card relative z-1 flex flex-col overflow-hidden rounded-normal border border-rim bg-secondary-bg text-primary-fg shadow-normal";
 	var CLOSE_SHAPES = "<path d=\"M6 6 18 18M18 6 6 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/>";

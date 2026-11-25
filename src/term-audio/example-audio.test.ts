@@ -387,6 +387,28 @@ describe('answerBarPrefetchHref', () => {
     expect(answerBarPrefetchHref()).toBe('https://cdn.example/sentence.mp3');
   });
 
+  it('accepts a cloze prefetch when ruby readings show up as parentheses', () => {
+    const stem = '牛乳やバターは酪農によって作られました。';
+    document.body.innerHTML = `
+      <div id="js-quiz">
+        <article class="relative">
+          <section>
+            <div class="bp-quiz-question">
+              <div class="text-center">
+                <ruby>牛乳<rp>(</rp><rt>ぎゅうにゅう</rt><rp>)</rp></ruby>やバターは
+                <button><span></span></button>
+                <ruby>作<rp>(</rp><rt>つく</rt><rp>)</rp></ruby>られました。
+              </div>
+            </div>
+          </section>
+        </article>
+      </div>
+      <link id="prefetch-audio" rel="prefetch" as="audio"
+        href="https://cdn.example/audio/vocab/tts/${encodeURIComponent(stem)}-male.mp3" />
+    `;
+    expect(answerBarPrefetchHref()).toContain(encodeURIComponent(stem));
+  });
+
   it('returns null for leftover vocab TTS that does not match the cloze sentence', () => {
     document.body.innerHTML = `
       <div id="js-quiz">

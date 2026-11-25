@@ -9,7 +9,7 @@ One **Audio** section in settings, with separate switches:
 - **Annotate source** — hover a play button to see the source (JPod101, Jisho, Bunpro Classic / Gemini / ElevenLabs TTS, or Bunpro Recording).
 - **Color code human vs TTS** — blue when a real recording will play, white when it is text-to-speech.
 - **Use real speakers instead of TTS** — a real speaker reads the term when the question has no clip of its own: a sentence with no audio (A5 and similar), or a translation question with no sentence. Check **Reviews**, **Vocab page**, or both. Lookups follow [Yomitan](https://github.com/yomidevs/yomitan) (JapanesePod101, then Jisho).
-- **Right-click to download** — right-click a play button to save the clip that button would play.
+- **Right-click to download** — right-click a play button on a review or the vocab page to save the clip that button would play, including the answer-bar button before you submit.
 
 After you answer, the answer-bar control is a simple **play ↔ pause** toggle (click or `P`) — including when Bunpro autoplays on a correct answer — without opening Bunpro’s X / timer player bar. Each button is bound to the file for the card on screen; a prefetch left over from the previous review is not played. Quiz hotkeys (`P`, `S`, `Tab`, and the rest) do not steal keys while you type in other fields — for example Bunpro’s report-bug box. If Tampermonkey’s privilege bridge is missing (so dictionary lookups cannot run), a one-time alert explains that Update/Reinstall is needed.
 

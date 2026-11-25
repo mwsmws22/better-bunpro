@@ -26,7 +26,7 @@ function onContextMenu(event: MouseEvent): void {
   if (!readAudioMenu().download) {
     return;
   }
-  const control = audioControlFrom(event.target);
+  const control = playControlFor(event);
   if (!control) {
     return;
   }
@@ -37,6 +37,30 @@ function onContextMenu(event: MouseEvent): void {
   event.preventDefault();
   event.stopPropagation();
   void downloadResolvedAudio(control, url);
+}
+
+/**
+ * The answer-bar play button is disabled until the card is answered. A
+ * right-click then lands on the bar around it, not on the button.
+ */
+function playControlFor(event: MouseEvent): HTMLElement | null {
+  return audioControlFrom(event.target) ?? playControlAt(event.clientX, event.clientY);
+}
+
+function playControlAt(x: number, y: number): HTMLElement | null {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  if (typeof document.elementsFromPoint !== 'function') {
+    return null;
+  }
+  for (const node of document.elementsFromPoint(x, y)) {
+    const control = audioControlFrom(node);
+    if (control) {
+      return control;
+    }
+  }
+  return null;
 }
 
 export function audioControlFrom(target: EventTarget | null): HTMLElement | null {

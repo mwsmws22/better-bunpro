@@ -16,6 +16,24 @@ describe('sentenceStemMatches', () => {
     ).toBe(true);
   });
 
+  it('matches a cloze whose ruby readings are parenthesized in textContent', () => {
+    expect(
+      sentenceStemMatches(
+        '牛乳やバターは酪農によって作られました。',
+        '牛乳(ぎゅうにゅう)やバターはによって作(つく)られました。',
+      ),
+    ).toBe(true);
+  });
+
+  it('matches a cloze whose filename dropped the quotation marks', () => {
+    expect(
+      sentenceStemMatches(
+        'コーチこれくらいの試験で挫けるんじゃないお前はヘコタレなのか',
+        'コーチ：「これくらいの試験(しけん)でんじゃない！お前(まえ)はヘコタレなのか？」',
+      ),
+    ).toBe(true);
+  });
+
   it('matches a cloze prompt that dropped the answer word and inlined the furigana', () => {
     expect(
       sentenceStemMatches(
